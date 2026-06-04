@@ -1,0 +1,1618 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YALO Sales CRM</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyD_0WnGjD1YKlrT86RXL79OvqfIoAm3ccc",
+  authDomain: "yalo-crm.firebaseapp.com",
+  projectId: "yalo-crm",
+  storageBucket: "yalo-crm.firebasestorage.app",
+  messagingSenderId: "1003166589543",
+  appId: "1:1003166589543:web:c2e22341675f1cf053eac2"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+window.FB = {
+  async saveLead(lead) {
+    await setDoc(doc(db, "leads", lead.id), lead);
+  },
+  async deleteLead(id) {
+    await deleteDoc(doc(db, "leads", id));
+  },
+  async saveActivity(act) {
+    await setDoc(doc(db, "activities", act.id), act);
+  },
+  async saveSettings(s) {
+    await setDoc(doc(db, "settings", "main"), s);
+  },
+  async countAllLeads() {
+    const snap = await getDocs(collection(db, "leads"));
+    return snap.size;
+  },
+  listenLeads(cb) {
+    return onSnapshot(collection(db, "leads"), snap => {
+      const leads = [];
+      snap.forEach(d => leads.push(d.data()));
+      cb(leads);
+    });
+  },
+  listenActivities(cb) {
+    return onSnapshot(collection(db, "activities"), snap => {
+      const acts = [];
+      snap.forEach(d => acts.push(d.data()));
+      acts.sort((a,b) => new Date(b.ts) - new Date(a.ts));
+      cb(acts);
+    });
+  },
+  listenSettings(cb) {
+    return onSnapshot(doc(db, "settings", "main"), snap => {
+      cb(snap.exists() ? snap.data() : {});
+    });
+  }
+};
+
+window.dispatchEvent(new Event('firebase-ready'));
+</script>
+<style>
+:root{
+--g:#7cbb42;--gd:#5a9a2a;--gl:#e8f5d6;--gll:#f4fae8;
+--dark:#1a1a2e;--bg:#f0f7e6;--text:#1a1a2e;--muted:#6b7a5e;
+--border:#d4e8b0;--red:#e74c3c;--amber:#f39c12;--blue:#3498db;--purple:#9b59b6;
+--shadow:0 2px 12px rgba(124,187,66,.12);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex}
+.sidebar{width:220px;min-height:100vh;background:var(--dark);display:flex;flex-direction:column;position:fixed;left:0;top:0;z-index:100}
+.logo{padding:24px 20px 20px;border-bottom:1px solid rgba(124,187,66,.2)}
+.logo-mark{font-size:26px;font-weight:800;color:var(--g);letter-spacing:-1px}
+.logo-tag{font-size:10px;color:rgba(255,255,255,.4);letter-spacing:2px;text-transform:uppercase;margin-top:2px}
+.nav{padding:16px 0;flex:1}
+.ni{display:flex;align-items:center;gap:10px;padding:11px 20px;cursor:pointer;color:rgba(255,255,255,.6);font-size:13px;font-weight:500;transition:.2s;border-left:3px solid transparent}
+.ni:hover{color:#fff;background:rgba(124,187,66,.1)}
+.ni.active{color:#fff;background:rgba(124,187,66,.15);border-left-color:var(--g)}
+.sfooter{padding:16px 20px;border-top:1px solid rgba(124,187,66,.2)}
+.sync-dot{width:7px;height:7px;border-radius:50%;background:var(--red);display:inline-block;margin-right:6px}
+.sync-dot.on{background:var(--g)}
+.sync-txt{font-size:11px;color:rgba(255,255,255,.4)}
+.main{margin-left:220px;flex:1;min-height:100vh;display:flex;flex-direction:column}
+.topbar{background:#fff;padding:0 28px;height:60px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);position:sticky;top:0;z-index:50}
+.page-title{font-size:18px;font-weight:700}
+.btn{padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:none;transition:.2s;font-family:inherit}
+.btn-g{background:var(--g);color:#fff}.btn-g:hover{background:var(--gd)}
+.btn-ghost{background:transparent;color:var(--muted);border:1px solid var(--border)}.btn-ghost:hover{background:var(--gl);color:var(--text)}
+.btn-red{background:var(--red);color:#fff}
+.btn-sm{padding:5px 11px;font-size:12px}
+.content{padding:24px 28px;flex:1}
+.card{background:#fff;border-radius:14px;padding:20px;box-shadow:var(--shadow);border:1px solid var(--border)}
+.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px}
+.mc{background:#fff;border-radius:14px;padding:20px;box-shadow:var(--shadow);border:1px solid var(--border)}
+.mc-label{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:600;margin-bottom:8px}
+.mc-val{font-size:32px;font-weight:800;line-height:1}
+.mc-val.g{color:var(--g)}.mc-val.r{color:var(--red)}.mc-val.a{color:var(--amber)}.mc-val.b{color:var(--blue)}
+.mc-sub{font-size:12px;color:var(--muted);margin-top:6px}
+.today{background:linear-gradient(135deg,var(--dark),#2d4a1e);border-radius:14px;padding:20px;margin-bottom:24px;color:#fff}
+.today-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--g);margin-bottom:12px}
+.ti{display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.07);border-radius:8px;padding:10px 14px;cursor:pointer;transition:.2s;margin-bottom:6px}
+.ti:hover{background:rgba(124,187,66,.2)}
+.tdot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.tdot.r{background:var(--red)}.tdot.a{background:var(--amber)}.tdot.g{background:var(--g)}
+.ttag{font-size:11px;font-weight:600;padding:2px 8px;border-radius:10px}
+.ttag.r{background:rgba(231,76,60,.2);color:#ff6b6b}
+.ttag.a{background:rgba(243,156,18,.2);color:var(--amber)}
+.charts-row{display:grid;grid-template-columns:1.5fr 1fr 1fr;gap:16px;margin-bottom:24px}
+.cc{background:#fff;border-radius:14px;padding:20px;box-shadow:var(--shadow);border:1px solid var(--border)}
+.cc-title{font-size:13px;font-weight:700;margin-bottom:3px}
+.cc-sub{font-size:11px;color:var(--muted);margin-bottom:14px}
+.bot-row{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.li{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)}
+.li:last-child{border-bottom:none}
+.li-co{font-size:13px;font-weight:600;cursor:pointer}.li-co:hover{color:var(--g)}
+.li-sec{font-size:11px;color:var(--muted);margin-top:1px}
+.li-val{font-size:13px;font-weight:700;color:var(--g)}
+.ai{display:flex;align-items:flex-start;gap:10px;padding:9px 0;border-bottom:1px solid var(--border)}
+.ai:last-child{border-bottom:none}
+.ai-ico{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0}
+.ai-ico.email{background:#e8f5d6}.ai-ico.call{background:#fef3cd}.ai-ico.meeting{background:#dbeafe}.ai-ico.note{background:#f3e8ff}.ai-ico.status{background:#fee2e2}.ai-ico.lead{background:#e8f5d6}
+.ai-txt{font-size:12px;flex:1;line-height:1.4}
+.ai-time{font-size:11px;color:var(--muted);white-space:nowrap}
+.ltoolbar{display:flex;align-items:center;gap:10px;margin-bottom:20px;flex-wrap:wrap}
+.sbox{flex:1;min-width:180px;position:relative}
+.sbox input{width:100%;padding:9px 14px 9px 34px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;background:#fff;outline:none}
+.sbox input:focus{border-color:var(--g)}
+.si{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--muted)}
+.fsel{padding:9px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;background:#fff;outline:none;cursor:pointer}
+.fsel:focus{border-color:var(--g)}
+.vtog{display:flex;border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.vb{padding:8px 14px;font-size:13px;cursor:pointer;background:#fff;border:none;color:var(--muted);font-family:inherit;transition:.2s}
+.vb.active{background:var(--g);color:#fff}
+.tw{overflow-x:auto;background:#fff;border-radius:14px;box-shadow:var(--shadow);border:1px solid var(--border)}
+table{width:100%;border-collapse:collapse;min-width:700px}
+th{padding:12px 16px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:700;background:var(--gll);border-bottom:1px solid var(--border)}
+td{padding:12px 16px;font-size:13px;border-bottom:1px solid var(--border);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:var(--gll)}
+.co-name{font-weight:700;cursor:pointer}.co-name:hover{color:var(--g)}
+.badge{display:inline-flex;align-items:center;font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px}
+.b-New{background:#f0f4ff;color:#4361ee}.b-Contacted{background:#fef3cd;color:#b7791f}
+.b-Replied{background:#e8f5d6;color:var(--gd)}.b-MeetingSet{background:#dbeafe;color:#1d4ed8}
+.b-ProposalSent{background:#f3e8ff;color:#6d28d9}.b-Closed{background:#d1fae5;color:#065f46}
+.b-Lost{background:#fee2e2;color:#991b1b}
+.b-draft{background:#f3f4f6;color:#6b7280}.b-sent{background:#dbeafe;color:#1d4ed8}
+.b-opened{background:#fef3cd;color:#b7791f}.b-replied{background:#e8f5d6;color:var(--gd)}
+.kanban{display:flex;gap:14px;overflow-x:auto;padding-bottom:16px}
+.kcol{min-width:200px;max-width:200px;flex-shrink:0}
+.kh{padding:10px 12px;border-radius:10px 10px 0 0;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;display:flex;align-items:center;justify-content:space-between}
+.kh-New{background:#e8eeff;color:#4361ee}.kh-Contacted{background:#fef3cd;color:#b7791f}
+.kh-Replied{background:#e8f5d6;color:var(--gd)}.kh-MeetingSet{background:#dbeafe;color:#1d4ed8}
+.kh-ProposalSent{background:#f3e8ff;color:#6d28d9}.kh-Closed{background:#d1fae5;color:#065f46}.kh-Lost{background:#fee2e2;color:#991b1b}
+.kb{background:#fff;border:1px solid var(--border);border-top:none;border-radius:0 0 10px 10px;min-height:180px;padding:8px;display:flex;flex-direction:column;gap:7px}
+.kcard{background:#fff;border:1px solid var(--border);border-radius:8px;padding:12px;cursor:pointer;transition:.2s}
+.kcard:hover{border-color:var(--g);box-shadow:var(--shadow)}
+.kco{font-size:13px;font-weight:700}.ksec{font-size:11px;color:var(--muted)}
+.kval{font-size:12px;font-weight:700;color:var(--g);margin-top:5px}
+.kov{font-size:10px;font-weight:600;color:var(--red);background:#fee2e2;padding:2px 6px;border-radius:10px;margin-top:4px;display:inline-block}
+.mo{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:200;display:flex;align-items:flex-start;justify-content:flex-end;opacity:0;pointer-events:none;transition:.3s}
+.mo.open{opacity:1;pointer-events:all}
+.md{width:520px;max-width:95vw;height:100vh;background:#fff;box-shadow:-8px 0 32px rgba(0,0,0,.15);overflow-y:auto;transform:translateX(100%);transition:.3s}
+.mo.open .md{transform:translateX(0)}
+.mh{padding:20px 24px;border-bottom:1px solid var(--border);position:sticky;top:0;background:#fff;z-index:10;display:flex;align-items:center;justify-content:space-between}
+.mx{width:32px;height:32px;border-radius:8px;border:1px solid var(--border);background:none;cursor:pointer;font-size:16px;color:var(--muted);display:flex;align-items:center;justify-content:center}
+.mb{padding:20px}
+.mtabs{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:20px}
+.mtab{padding:10px 16px;font-size:13px;font-weight:600;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;transition:.2s;background:none;border-top:none;border-left:none;border-right:none;font-family:inherit}
+.mtab.active{color:var(--g);border-bottom-color:var(--g)}
+.igrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;background:var(--gll);border-radius:10px;padding:14px;margin-bottom:14px}
+.ifield .fl{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:3px}
+.ifield .fv{font-size:13px;color:var(--text)}
+.ifield .fv a{color:var(--g);text-decoration:none}
+.ccard{background:var(--gll);border-radius:10px;padding:14px;margin-bottom:10px;border:1px solid var(--border)}
+.ccname{font-size:14px;font-weight:700}.cctitle{font-size:12px;color:var(--muted);margin-bottom:8px}
+.cclinks{display:flex;gap:7px;flex-wrap:wrap}
+.cclink{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;padding:4px 10px;border-radius:6px;text-decoration:none;border:1px solid var(--border);background:#fff;color:var(--text);transition:.2s}
+.cclink:hover{background:var(--g);color:#fff;border-color:var(--g)}
+.ecard{border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:10px;transition:.2s}
+.ecard:hover{border-color:var(--g)}
+.ecard.ov{border-color:var(--red);background:#fff8f8}
+.erow{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+.enum{width:26px;height:26px;border-radius:7px;background:var(--g);color:#fff;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.elabel{font-size:13px;font-weight:700;flex:1}
+.etiming{font-size:11px;color:var(--muted)}
+.esubj{font-size:12px;color:var(--muted);margin-bottom:8px}
+.ebody{font-size:12px;color:var(--text);white-space:pre-wrap;line-height:1.6;max-height:100px;overflow:hidden}
+.eacts{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.alitem{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)}
+.alitem:last-child{border-bottom:none}
+.alico{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;background:var(--gll)}
+.altext{font-size:13px;flex:1}.altime{font-size:11px;color:var(--muted)}
+.narea{width:100%;min-height:120px;padding:12px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;resize:vertical;outline:none}
+.narea:focus{border-color:var(--g)}
+.cmo{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:300;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:.3s}
+.cmo.open{opacity:1;pointer-events:all}
+.cm{background:#fff;border-radius:16px;padding:28px;width:500px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.2);transform:translateY(20px);transition:.3s}
+.cmo.open .cm{transform:translateY(0)}
+.cmtitle{font-size:18px;font-weight:800;margin-bottom:4px}
+.cmsub{font-size:13px;color:var(--muted);margin-bottom:20px}
+.fl{display:block;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:5px}
+.fi{width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:8px;font-size:14px;font-family:inherit;outline:none;background:#fff;transition:.2s}
+.fi:focus{border-color:var(--g);box-shadow:0 0 0 3px rgba(124,187,66,.15)}
+.fsel2{width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:8px;font-size:14px;font-family:inherit;outline:none;background:#fff;cursor:pointer}
+.fsel2:focus{border-color:var(--g)}
+.fta{width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:8px;font-size:14px;font-family:inherit;outline:none;background:#fff;resize:vertical;min-height:70px}
+.fta:focus{border-color:var(--g)}
+.fg{margin-bottom:14px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.gsteps{display:flex;margin-bottom:20px;border-radius:10px;overflow:hidden;border:1px solid var(--border)}
+.gstep{flex:1;padding:12px 8px;text-align:center;font-size:12px;font-weight:600;color:var(--muted);background:#fff;cursor:pointer;transition:.2s;border-right:1px solid var(--border)}
+.gstep:last-child{border-right:none}
+.gstep.active{background:var(--g);color:#fff}
+.gstep.done{background:var(--gl);color:var(--gd)}
+.pbar{height:4px;background:var(--gl);border-radius:2px;overflow:hidden;margin-bottom:20px}
+.pfill{height:100%;background:var(--g);border-radius:2px;transition:width .4s}
+.cgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.cb{padding:10px 4px;text-align:center;border:1px solid var(--border);border-radius:8px;cursor:pointer;background:#fff;color:var(--muted);font-size:12px;font-weight:600;transition:.2s;font-family:inherit}
+.cb.on,.cb:hover{background:var(--g);color:#fff;border-color:var(--g)}
+.tgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.tb{padding:8px;text-align:center;border:1px solid var(--border);border-radius:8px;cursor:pointer;background:#fff;color:var(--muted);font-size:12px;font-weight:600;transition:.2s;font-family:inherit}
+.tb.on,.tb:hover{background:var(--g);color:#fff;border-color:var(--g)}
+.icard{background:var(--gll);border-radius:12px;padding:16px;margin-bottom:16px;border:1px solid var(--border)}
+.igr2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.ii{background:#fff;border-radius:8px;padding:10px 12px;border:1px solid var(--border)}
+.ii-l{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600;margin-bottom:3px}
+.ii-v{font-size:13px;font-weight:600}
+.ni2{border-left:3px solid var(--g);padding:8px 12px;margin-bottom:7px;background:#fff;border-radius:0 8px 8px 0}
+.nh{font-size:12px;font-weight:700;margin-bottom:1px}.nm{font-size:11px;color:var(--muted)}
+.csi{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:8px;cursor:pointer;margin-bottom:7px;transition:.2s;background:#fff}
+.csi:hover,.csi.sel{border-color:var(--g);background:var(--gll)}
+.cav{width:34px;height:34px;border-radius:50%;background:var(--g);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0}
+.so{background:#fff;border:1px solid var(--border);border-radius:12px;margin-bottom:12px;overflow:hidden}
+.soh{padding:14px 16px;background:var(--gll);display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border)}
+.son{width:28px;height:28px;border-radius:8px;background:var(--g);color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.sol{font-size:13px;font-weight:700}.sot{font-size:11px;color:var(--muted)}
+.sob{padding:16px}
+.sosl{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-bottom:4px}
+.sosv{font-size:14px;font-weight:700;padding:8px 12px;background:var(--gll);border-radius:6px;margin-bottom:12px}
+.sotext{font-size:13px;line-height:1.75;white-space:pre-wrap}
+.soacts{display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--border);background:var(--gll)}
+.sset{background:#fff;border-radius:14px;padding:24px;box-shadow:var(--shadow);border:1px solid var(--border);margin-bottom:16px}
+.sstitle{font-size:15px;font-weight:700;margin-bottom:4px}
+.sssub{font-size:13px;color:var(--muted);margin-bottom:18px}
+.qlog{background:linear-gradient(135deg,var(--dark),#2d4a1e);border-radius:14px;padding:20px;margin-bottom:20px;color:#fff}
+.ql-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--g);margin-bottom:12px}
+.qlrow{display:flex;gap:8px;flex-wrap:wrap}
+.qlb{padding:8px 14px;border-radius:8px;border:1px solid rgba(124,187,66,.3);background:rgba(255,255,255,.07);color:#fff;font-size:12px;font-weight:600;cursor:pointer;transition:.2s;font-family:inherit}
+.qlb:hover{background:rgba(124,187,66,.25);border-color:var(--g)}
+.ffilters{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap}
+.ff{padding:6px 14px;border-radius:20px;border:1px solid var(--border);font-size:12px;font-weight:600;cursor:pointer;background:#fff;color:var(--muted);transition:.2s;font-family:inherit}
+.ff.active{background:var(--g);color:#fff;border-color:var(--g)}
+.flist{background:#fff;border-radius:14px;padding:20px;box-shadow:var(--shadow);border:1px solid var(--border)}
+.fitem{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--border)}
+.fitem:last-child{border-bottom:none}
+.fico{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.fico.email{background:#e8f5d6}.fico.call{background:#fef3cd}.fico.meeting{background:#dbeafe}.fico.note{background:#f3e8ff}.fico.status{background:#fee2e2}.fico.lead{background:#e8f5d6}
+.fco{font-size:13px;font-weight:700}.fdesc{font-size:12px;color:var(--muted);margin-top:2px}
+.ftime{font-size:11px;color:var(--muted);white-space:nowrap;margin-left:auto}
+.toast{position:fixed;bottom:24px;right:24px;background:var(--dark);color:#fff;padding:12px 20px;border-radius:10px;font-size:13px;font-weight:600;z-index:1000;transform:translateY(100px);opacity:0;transition:.3s;border-left:4px solid var(--g)}
+.toast.show{transform:translateY(0);opacity:1}
+.sbars{display:flex;flex-direction:column;gap:10px}
+.sbar-row{display:flex;align-items:center;gap:10px}
+.sbar-name{font-size:11px;color:var(--muted);width:90px;font-weight:500}
+.sbar-wrap{flex:1;height:8px;background:var(--gl);border-radius:4px;overflow:hidden}
+.sbar-fill{height:100%;border-radius:4px;background:var(--g);transition:.6s}
+.sbar-count{font-size:11px;font-weight:700;width:20px;text-align:right}
+.loading{display:flex;align-items:center;justify-content:center;height:200px;color:var(--muted);font-size:14px;gap:10px}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--g);animation:pulse 1.2s infinite}
+.dot:nth-child(2){animation-delay:.2s}.dot:nth-child(3){animation-delay:.4s}
+@keyframes pulse{0%,80%,100%{opacity:.3}40%{opacity:1}}
+@media(max-width:768px){
+/* Hide sidebar entirely on mobile */
+.sidebar{display:none}
+.main{margin-left:0;padding-bottom:70px}
+/* Bottom tab bar */
+.bottom-nav{display:flex!important}
+/* Full width content */
+.content{padding:14px}
+.topbar{padding:0 14px}
+/* Grid adjustments */
+.metrics{grid-template-columns:1fr 1fr;gap:10px}
+.charts-row{grid-template-columns:1fr}
+.bot-row{grid-template-columns:1fr}
+.g2{grid-template-columns:1fr}
+.cgrid{grid-template-columns:repeat(2,1fr)}
+.tgrid{grid-template-columns:repeat(2,1fr)}
+.igrid{grid-template-columns:1fr 1fr}
+/* Drawer full screen */
+.mo{align-items:flex-end}
+.md{width:100vw;height:92vh;border-radius:16px 16px 0 0}
+/* Modals */
+.cm{width:96vw;padding:20px}
+/* Tables become readable */
+.tw{border-radius:10px}
+table{min-width:500px}
+/* Kanban scrollable */
+.kanban{gap:10px}
+.kcol{min-width:160px;max-width:160px}
+/* Metric cards */
+.mc{padding:14px}
+.mc-val{font-size:24px}
+/* Leaderboard grid */
+#leaderboard>div{grid-template-columns:1fr 1fr!important}
+/* Leads toolbar wrap */
+.ltoolbar{gap:8px}
+.sbox{min-width:100%;order:-1}
+/* War plan iframe */
+#tab-warplan iframe{height:calc(100vh - 130px)}
+}
+
+/* Bottom tab bar — hidden on desktop */
+.bottom-nav{
+  display:none;
+  position:fixed;bottom:0;left:0;right:0;
+  background:var(--dark);
+  border-top:1px solid rgba(124,187,66,.2);
+  z-index:200;height:62px;
+  align-items:stretch;
+}
+.bn-item{
+  flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  color:rgba(255,255,255,.5);font-size:9px;font-weight:600;cursor:pointer;
+  padding:8px 2px;gap:3px;letter-spacing:.02em;text-transform:uppercase;
+  border:none;background:none;font-family:inherit;transition:.2s;
+}
+.bn-item.active{color:var(--g)}
+.bn-item span:first-child{font-size:20px}
+</style>
+</head>
+<body>
+
+<nav class="sidebar">
+  <div class="logo">
+    <div class="logo-mark">ya-lo</div>
+    <div class="logo-tag">Sales CRM</div>
+  </div>
+  <div class="nav">
+    <div class="ni" onclick="showTab('dashboard')"><span style="font-size:17px">📊</span><span>Dashboard</span></div>
+    <div class="ni" onclick="showTab('leads')"><span style="font-size:17px">🏢</span><span>Leads</span></div>
+    <div class="ni" onclick="showTab('generator')"><span style="font-size:17px">🔍</span><span>Research</span></div>
+    <div class="ni" onclick="showTab('scripts')"><span style="font-size:17px">📝</span><span>Scripts</span></div>
+    <div class="ni" onclick="showTab('warplan')"><span style="font-size:17px">⚔️</span><span>War Plan</span></div>
+    <div class="ni" onclick="showTab('activity')"><span style="font-size:17px">⚡</span><span>Activity</span></div>
+    <div class="ni" onclick="showTab('trash')"><span style="font-size:17px">🗑️</span><span>Trash</span></div>
+    <div class="ni" onclick="showTab('settings')"><span style="font-size:17px">⚙️</span><span>Settings</span></div>
+  </div>
+  <div class="sfooter">
+    <span class="sync-dot" id="sync-dot"></span>
+    <span class="sync-txt" id="sync-txt">Connecting...</span>
+  </div>
+</nav>
+
+<div class="main">
+  <div class="topbar">
+    <div class="page-title" id="page-title">Dashboard</div>
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-g" onclick="openAddLead()">+ Add Lead</button>
+    </div>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div class="content" id="tab-dashboard">
+    <div class="metrics" id="metrics"></div>
+    <div id="today-wrap"></div>
+    <div class="charts-row">
+      <div class="cc"><div class="cc-title">Outreach activity</div><div class="cc-sub">Last 28 days</div><div style="height:160px;position:relative"><canvas id="actChart"></canvas></div></div>
+      <div class="cc"><div class="cc-title">Pipeline by stage</div><div class="cc-sub">Current leads</div><div class="sbars" id="sbars"></div></div>
+      <div class="cc"><div class="cc-title">Acquisition source</div><div class="cc-sub">Where leads come from</div><div style="height:160px;position:relative"><canvas id="srcChart"></canvas></div></div>
+    </div>
+    <div class="bot-row">
+      <div class="card" style="padding:16px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><div style="font-size:13px;font-weight:700">Top opportunities</div><div style="font-size:11px;color:var(--muted)">By value</div></div>
+        <div id="top-leads"></div>
+      </div>
+      <div class="card" style="padding:16px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><div style="font-size:13px;font-weight:700">Recent activity</div></div>
+        <div id="recent-acts"></div>
+      </div>
+    </div>
+    <div class="card" style="padding:16px;margin-top:16px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+        <div style="font-size:13px;font-weight:700">🏆 Sales Leaderboard</div>
+        <div style="display:flex;border:1px solid var(--border);border-radius:6px;overflow:hidden">
+          <button class="vb active" id="lb-pipeline" onclick="setLB('pipeline')" style="padding:5px 12px;font-size:12px">Pipeline</button>
+          <button class="vb" id="lb-closed" onclick="setLB('closed')" style="padding:5px 12px;font-size:12px">Closed Won</button>
+        </div>
+      </div>
+      <div id="leaderboard"></div>
+    </div>
+  </div>
+
+  <!-- LEADS -->
+  <div class="content" id="tab-leads" style="display:none">
+    <div class="ltoolbar">
+      <div class="sbox"><span class="si">🔍</span><input type="text" id="lsearch" placeholder="Search companies..." oninput="renderLeads()"></div>
+      <select class="fsel" id="stagef" onchange="renderLeads()">
+        <option value="">All stages</option>
+        <option>New</option><option>Contacted</option><option>Replied</option>
+        <option>Meeting Set</option><option>Proposal Sent</option><option>Closed</option><option>Lost</option>
+      </select>
+      <select class="fsel" id="sectorf" onchange="renderLeads()"><option value="">All sectors</option></select>
+      <div class="vtog">
+        <button class="vb active" id="vtable" onclick="setView('table')">☰ List</button>
+        <button class="vb" id="vkanban" onclick="setView('kanban')">⬛ Board</button>
+      </div>
+    </div>
+    <div id="table-view"></div>
+    <div id="kanban-view" style="display:none"></div>
+  </div>
+
+  <!-- GENERATOR -->
+  <div class="content" id="tab-generator" style="display:none">
+    <div class="card" style="max-width:620px">
+      <div style="font-size:16px;font-weight:800;margin-bottom:4px">🔍 Company Research</div>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:18px">AI searches the web for live intel, key contacts and recent signals. Use the Scripts tab to copy outreach emails.</div>
+      <div class="g2">
+        <div class="fg"><label class="fl">Company name *</label><input class="fi" id="gco" placeholder="e.g. Mactay Consulting"></div>
+        <div class="fg"><label class="fl">Market</label><select class="fsel2" id="gmkt"><option>Nigeria</option><option>United Kingdom</option><option>Ghana</option><option>Kenya</option></select></div>
+      </div>
+      <div class="fg"><label class="fl">Context (optional)</label><textarea class="fta" id="gctx" placeholder="Paste ContactOut data, LinkedIn info, event notes..."></textarea></div>
+      <div class="g2">
+        <button class="btn btn-g" id="res-btn" onclick="runResearch()">🔍 Research Company</button>
+        <button class="btn btn-ghost" onclick="saveResearchToLead()" id="save-research-btn" style="display:none">💾 Save as Lead</button>
+      </div>
+    </div>
+    <div id="intel-out" style="max-width:620px;margin-top:14px"></div>
+  </div>
+
+  <!-- SCRIPTS -->
+  <div class="content" id="tab-scripts" style="display:none">
+    <div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;align-items:center">
+      <div style="font-size:15px;font-weight:700;flex:1">Script Library</div>
+      <div style="display:flex;border:1px solid var(--border);border-radius:8px;overflow:hidden">
+        <button class="vb active" id="scr-office" onclick="setScriptType('office')" style="padding:8px 16px;font-size:13px">🏢 Office / Warehouse Rent</button>
+        <button class="vb" id="scr-employer" onclick="setScriptType('employer')" style="padding:8px 16px;font-size:13px">👥 Employer / Staff Housing</button>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap">
+      <div style="flex:1;min-width:160px">
+        <label class="fl" style="margin-bottom:5px">First name</label>
+        <input class="fi" id="scr-fname" placeholder="e.g. Tayo" oninput="renderScripts()">
+      </div>
+      <div style="flex:2;min-width:200px">
+        <label class="fl" style="margin-bottom:5px">Company name</label>
+        <input class="fi" id="scr-coname" placeholder="e.g. MacTay Consulting" oninput="renderScripts()">
+      </div>
+      <div style="flex:1;min-width:160px">
+        <label class="fl" style="margin-bottom:5px">Annual lease (N)</label>
+        <input class="fi" id="scr-lease" placeholder="e.g. 30000000" type="number" oninput="renderScripts()">
+      </div>
+    </div>
+    <div id="scripts-output"></div>
+  </div>
+
+  <!-- WAR PLAN -->
+  <div class="content" id="tab-warplan" style="display:none">
+    <div style="text-align:center;padding:40px 20px">
+      <div style="font-size:48px;margin-bottom:16px">⚔️</div>
+      <div style="font-size:20px;font-weight:800;color:var(--text);margin-bottom:8px">YALO 4-Week War Plan</div>
+      <div style="font-size:14px;color:var(--muted);margin-bottom:32px;max-width:320px;margin-left:auto;margin-right:auto">Target: ₦207M disbursed · Disbursement tracker · KPI scoreboard · Daily war room · Scripts & lookalike machine</div>
+      <a href="https://docs.google.com/spreadsheets/d/1seCtp9McsQVLeMVhd3BjZjMiRypp9QJWOQyhM9NCGaw/edit?usp=sharing" target="_blank" style="display:inline-flex;align-items:center;gap:10px;background:var(--g);color:#fff;padding:14px 28px;border-radius:10px;font-size:15px;font-weight:700;text-decoration:none">
+        📊 Open War Plan
+      </a>
+      <div style="margin-top:16px;font-size:12px;color:var(--muted)">Opens in Google Sheets · Works on phone, tablet and laptop</div>
+    </div>
+  </div>
+
+  <!-- ACTIVITY -->
+  <div class="content" id="tab-activity" style="display:none">
+    <div class="qlog">
+      <div class="ql-title">Quick log</div>
+      <div class="qlrow">
+        <button class="qlb" onclick="quickLog('call')">📞 Log call</button>
+        <button class="qlb" onclick="quickLog('meeting')">📅 Log meeting</button>
+        <button class="qlb" onclick="quickLog('note')">📝 Add note</button>
+      </div>
+    </div>
+    <div class="ffilters">
+      <button class="ff active" data-f="all" onclick="setFF('all')">All</button>
+      <button class="ff" data-f="email" onclick="setFF('email')">📧 Emails</button>
+      <button class="ff" data-f="call" onclick="setFF('call')">📞 Calls</button>
+      <button class="ff" data-f="meeting" onclick="setFF('meeting')">📅 Meetings</button>
+      <button class="ff" data-f="note" onclick="setFF('note')">📝 Notes</button>
+      <button class="ff" data-f="status" onclick="setFF('status')">🔄 Status</button>
+    </div>
+    <div class="flist" id="flist"></div>
+  </div>
+
+  <!-- TRASH -->
+  <div class="content" id="tab-trash" style="display:none">
+    <div class="card" style="padding:16px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+        <div>
+          <div style="font-size:15px;font-weight:700">Recently Deleted</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:2px">Restore leads or permanently delete them.</div>
+        </div>
+      </div>
+      <div id="trash-list"></div>
+    </div>
+  </div>
+
+  <!-- SETTINGS -->
+  <div class="content" id="tab-settings" style="display:none">
+    <div class="sset">
+      <div class="sstitle">AI Connection</div>
+      <div class="sssub">Your Anthropic API key — stored in Firebase, syncs across all devices.</div>
+      <div class="fg"><label class="fl">Anthropic API Key</label><input class="fi" type="password" id="s-key" placeholder="sk-ant-..."></div>
+      <button class="btn btn-g" onclick="saveSettings()">Save</button>
+    </div>
+    <div class="sset">
+      <div class="sstitle">Your Details</div>
+      <div class="sssub">Used in email sign-offs and call scripts.</div>
+      <div class="g2">
+        <div class="fg"><label class="fl">Name</label><input class="fi" id="s-name" placeholder="e.g. Busayo"></div>
+        <div class="fg"><label class="fl">Title</label><input class="fi" id="s-title" placeholder="e.g. Head of Partnerships"></div>
+        <div class="fg"><label class="fl">Email</label><input class="fi" id="s-email" type="email" placeholder="you@yalo.ng"></div>
+        <div class="fg"><label class="fl">WhatsApp / Phone</label><input class="fi" id="s-phone" placeholder="+234..."></div>
+      </div>
+      <div class="g2">
+        <div class="fg"><label class="fl">Default tone</label>
+          <select class="fsel2" id="s-tone">
+            <option>consultative and professional</option>
+            <option>warm and relationship-driven</option>
+            <option>direct and commercial</option>
+            <option>executive and boardroom-level</option>
+          </select>
+        </div>
+        <div class="fg"><label class="fl">Default market</label>
+          <select class="fsel2" id="s-mkt"><option>Nigeria</option><option>United Kingdom</option></select>
+        </div>
+      </div>
+      <button class="btn btn-g" onclick="saveSettings()">Save Settings</button>
+    </div>
+    <div class="sset">
+      <div class="sstitle">Data</div>
+      <div class="sssub">Export your leads or clear all data.</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn btn-ghost" onclick="exportCSV()">Export CSV</button>
+        <button class="btn btn-red" onclick="clearData()">Clear all data</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- LEAD DRAWER -->
+<div class="mo" id="lead-mo">
+  <div class="md">
+    <div class="mh">
+      <div><div style="font-size:16px;font-weight:800" id="d-co"></div><div style="font-size:12px;color:var(--muted)" id="d-sec"></div></div>
+      <button class="mx" onclick="closeDrawer()">✕</button>
+    </div>
+    <div class="mb">
+      <div class="mtabs">
+        <button class="mtab active" onclick="setDTab('overview')">Overview</button>
+        <button class="mtab" onclick="setDTab('emails')">Emails</button>
+        <button class="mtab" onclick="setDTab('activity')">Activity</button>
+        <button class="mtab" onclick="setDTab('notes')">Notes</button>
+      </div>
+      <div id="d-content"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ADD LEAD MODAL -->
+<div class="cmo" id="al-mo">
+  <div class="cm">
+    <div class="cmtitle">Add New Lead</div>
+    <div class="cmsub">Fill in what you know — add more later.</div>
+    <div class="g2">
+      <div class="fg"><label class="fl">Company *</label><input class="fi" id="al-co" placeholder="Company name"></div>
+      <div class="fg"><label class="fl">Sector</label>
+        <select class="fsel2" id="al-sec">
+          <option value="">Select...</option>
+          <option>HR & Consulting</option><option>Manufacturing</option><option>Oil & Gas</option>
+          <option>Technology</option><option>Financial Services</option><option>Logistics</option>
+          <option>Healthcare</option><option>Construction</option><option>FMCG</option>
+          <option>E-commerce / Retail</option><option>Security</option><option>Government</option>
+          <option>Professional Services</option><option>Other</option>
+        </select>
+      </div>
+      <div class="fg"><label class="fl">HQ</label><input class="fi" id="al-hq" placeholder="e.g. Lagos, Nigeria"></div>
+      <div class="fg"><label class="fl">Company size</label><input class="fi" id="al-sz" placeholder="e.g. 200-500 employees"></div>
+      <div class="fg"><label class="fl">Website</label><input class="fi" id="al-web" placeholder="mactay.com"></div>
+      <div class="fg"><label class="fl">Deal value (N)</label><input class="fi" id="al-val" type="number" placeholder="5000000"></div>
+      <div class="fg"><label class="fl">Blocker</label>
+        <select class="fsel2" id="al-blocker">
+          <option value="">None</option>
+          <option>HR Pending</option><option>Landlord Pending</option><option>Docs Missing</option>
+          <option>Credit Review</option><option>Other</option>
+        </select>
+      </div>
+    </div>
+    <div class="fg"><label class="fl">YALO fit</label><textarea class="fta" id="al-fit" placeholder="Why is YALO a good fit?" style="min-height:55px"></textarea></div>
+    <div class="g2">
+      <div class="fg"><label class="fl">Source</label>
+        <select class="fsel2" id="al-src">
+          <option>ContactOut</option><option>LinkedIn</option><option>Referral</option>
+          <option>AI Research</option><option>Event</option><option>Inbound</option><option>Other</option>
+        </select>
+      </div>
+      <div class="fg"><label class="fl">Lead Owner</label>
+        <select class="fsel2" id="al-owner">
+          <option value="">— Select owner —</option>
+          <option>Amusan</option><option>Akachi</option><option>Michael</option><option>Rhoda</option>
+          <option>Ezinne</option><option>Temitope</option><option>Morenike</option><option>Dele</option>
+          <option>Tolu</option><option>Steven</option><option>Others</option>
+        </select>
+      </div>
+    </div>
+    <div style="font-size:14px;font-weight:700;margin:14px 0 10px">Primary contact</div>
+    <div class="g2">
+      <div class="fg"><label class="fl">Name</label><input class="fi" id="al-cn" placeholder="e.g. Tayo Rotimi"></div>
+      <div class="fg"><label class="fl">Title</label><input class="fi" id="al-ct" placeholder="e.g. CEO"></div>
+      <div class="fg"><label class="fl">Email</label><input class="fi" id="al-ce" type="email" placeholder="tayo@company.com"></div>
+      <div class="fg"><label class="fl">Phone / WhatsApp</label><input class="fi" id="al-cp" placeholder="+234..."></div>
+    </div>
+    <div class="fg"><label class="fl">LinkedIn</label><input class="fi" id="al-li" placeholder="linkedin.com/in/..."></div>
+    <div style="display:flex;gap:10px;margin-top:8px">
+      <button class="btn btn-ghost" onclick="closeAddLead()" style="flex:1">Cancel</button>
+      <button class="btn btn-g" onclick="submitAddLead()" style="flex:2">Add Lead</button>
+    </div>
+  </div>
+</div>
+
+<!-- QUICK LOG MODAL -->
+<div class="cmo" id="ql-mo">
+  <div class="cm" style="max-width:400px">
+    <div class="cmtitle" id="ql-title">Log Activity</div>
+    <div class="cmsub">Logged instantly to Firebase.</div>
+    <div class="fg"><label class="fl">Lead</label><select class="fsel2" id="ql-lead"></select></div>
+    <div class="fg"><label class="fl">Details</label><textarea class="fta" id="ql-desc" placeholder="What happened?"></textarea></div>
+    <div style="display:flex;gap:10px;margin-top:8px">
+      <button class="btn btn-ghost" onclick="closeQL()" style="flex:1">Cancel</button>
+      <button class="btn btn-g" onclick="submitQL()" style="flex:2">Log It</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const STAGES = ['New','Contacted','Replied','Meeting Set','Proposal Sent','Closed','Lost'];
+const ELABELS = [
+  {label:'The Research Hook',timing:'Day 1'},
+  {label:'The Insight Drop',timing:'Day 3'},
+  {label:'The Case Study',timing:'Day 7'},
+  {label:'The Pain Amplifier',timing:'Day 14'},
+  {label:'The New Angle',timing:'Day 21'},
+  {label:'The Social Proof Bomb',timing:'Day 30'},
+  {label:'The Honest Breakup',timing:'Day 45'}
+];
+const EDAYS = [0,2,6,13,20,29,44];
+
+// State
+let leads = [], activities = [], settings = {};
+let curTab = 'dashboard';
+let curLeadId = null;
+let curDTab = 'overview';
+let lView = 'table';
+let ffilt = 'all';
+let gStep = 1;
+let gIntel = null;
+let gContact = null;
+let gChannel = 'cold email';
+let gTone = 'consultative and professional';
+let genSeq = [];
+let qlType = 'note';
+let actChart = null, srcChart = null;
+
+// Utils
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6)}
+function fmt(n){if(!n)return '—';return n>=1000000?'N'+(n/1000000).toFixed(1)+'M':n>=1000?'N'+(n/1000).toFixed(0)+'K':'N'+n}
+function ago(iso){const d=new Date(iso),s=(Date.now()-d)/1000;if(s<60)return 'just now';if(s<3600)return Math.floor(s/60)+'m ago';if(s<86400)return Math.floor(s/3600)+'h ago';return Math.floor(s/86400)+'d ago'}
+function inits(n){if(!n||n==='Unknown')return '?';return n.trim().split(/\s+/).slice(0,2).map(w=>w[0]).join('').toUpperCase()}
+function toast(msg,c){const t=document.getElementById('toast');t.textContent=msg;t.style.borderLeftColor=c||'var(--g)';t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3000)}
+function isOD(lead,i){
+  if(!lead.contactedAt||lead.emails[i].status==='sent'||lead.emails[i].status==='replied')return false;
+  return new Date()>new Date(new Date(lead.contactedAt).getTime()+EDAYS[i]*86400000);
+}
+function bclass(stage){return 'b-'+stage.replace(/\s/g,'')}
+
+// Firebase listeners
+window.addEventListener('firebase-ready',()=>{
+  window.FB.listenLeads(data=>{leads=data;renderAll()});
+  window.FB.listenActivities(data=>{activities=data;renderAll()});
+  window.FB.listenSettings(data=>{
+    settings=data;
+    document.getElementById('sync-dot').className='sync-dot on';
+    document.getElementById('sync-txt').textContent='Synced';
+    loadSettingsUI();
+  });
+  setTimeout(seedIfEmpty,2000);
+});
+
+function renderAll(){
+  if(curTab==='dashboard')renderDash();
+  if(curTab==='leads')renderLeads();
+  if(curTab==='activity')renderFeed();
+}
+
+// Nav
+function showTab(t){
+  ['dashboard','leads','generator','scripts','warplan','activity','trash','settings'].forEach(x=>{
+    document.getElementById('tab-'+x).style.display=x===t?'':'none';
+  });
+  document.querySelectorAll('.ni').forEach((el,i)=>{
+    el.classList.toggle('active',['dashboard','leads','generator','scripts','warplan','activity','trash','settings'][i]===t);
+  });
+  const titles={dashboard:'Dashboard',leads:'Leads',generator:'Company Research',scripts:'Script Library',warplan:'War Plan',activity:'Activity Feed',trash:'Recently Deleted',settings:'Settings'};
+  document.getElementById('page-title').textContent=titles[t]||t;
+  curTab=t;
+  // Sync bottom nav
+  const bnMap={dashboard:'bn-dashboard',leads:'bn-leads',generator:'bn-generator',scripts:'bn-scripts',warplan:'bn-warplan',activity:'bn-activity',settings:'bn-settings'};
+  document.querySelectorAll('.bn-item').forEach(b=>b.classList.remove('active'));
+  if(bnMap[t])document.getElementById(bnMap[t])?.classList.add('active');
+  if(t==='dashboard')renderDash();
+  if(t==='leads')renderLeads();
+  if(t==='activity')renderFeed();
+  if(t==='trash')renderTrash();
+  if(t==='scripts')renderScripts();
+}
+
+// Dashboard
+function renderDash(){
+  const now=new Date(),wa=new Date(now-7*86400000);
+  const activeLeads=leads.filter(l=>!l._deleted);
+  const emailsWk=activities.filter(a=>a.type==='email'&&new Date(a.ts)>wa).length;
+  const meetings=activities.filter(a=>a.type==='meeting').length;
+  let od=0;activeLeads.forEach(l=>l.emails.forEach((e,i)=>{if(isOD(l,i))od++;}));
+  const pval=activeLeads.reduce((s,l)=>s+(l.value||0),0);
+  const totalDisbursed=activeLeads.reduce((s,l)=>s+(l.disbursed||0),0);
+  const blocked=activeLeads.filter(l=>l.blocker&&l.blocker!=='').length;
+
+  document.getElementById('metrics').innerHTML=`
+    <div class="mc"><div class="mc-label">Total leads</div><div class="mc-val g">${activeLeads.length}</div><div class="mc-sub">${activeLeads.filter(l=>l.stage==='Closed').length} closed</div></div>
+    <div class="mc"><div class="mc-label">Pipeline value</div><div class="mc-val a">${fmt(pval)}</div><div class="mc-sub">${activeLeads.filter(l=>!['Closed','Lost'].includes(l.stage)).length} active</div></div>
+    <div class="mc"><div class="mc-label">Total disbursed</div><div class="mc-val g">${fmt(totalDisbursed)}</div><div class="mc-sub">${totalDisbursed&&pval?Math.round(totalDisbursed/pval*100)+'% of pipeline':'Track per lead'}</div></div>
+    <div class="mc"><div class="mc-label">${od>0||blocked>0?'Needs attention':'All on track'}</div><div class="mc-val ${od>0||blocked>0?'r':'g'}">${od+blocked}</div><div class="mc-sub">${od} overdue · ${blocked} blocked</div></div>
+  `;
+
+  // Today panel
+  const items=[];
+  activeLeads.forEach(l=>l.emails.forEach((e,i)=>{
+    if(isOD(l,i))items.push({t:'overdue',lead:l,i});
+    else if(l.contactedAt&&e.status==='draft'){
+      const due=new Date(new Date(l.contactedAt).getTime()+EDAYS[i]*86400000);
+      if(Math.ceil((due-now)/86400000)===0)items.push({t:'due',lead:l,i});
+    }
+  }));
+  const blockedLeads=activeLeads.filter(l=>l.blocker&&l.blocker!=='');
+  const allItems=[...items,...blockedLeads.map(l=>({t:'blocked',lead:l,i:null}))];
+  document.getElementById('today-wrap').innerHTML=allItems.length?`
+    <div class="today">
+      <div class="today-title">Today's Actions (${allItems.length})</div>
+      ${allItems.slice(0,8).map(x=>`
+        <div class="ti" onclick="openLead('${x.lead.id}')">
+          <div class="tdot ${x.t==='overdue'||x.t==='blocked'?'r':'a'}"></div>
+          <div style="flex:1;font-size:13px"><strong>${x.lead.company}</strong>${x.t==='blocked'?` &middot; ⚠ ${x.lead.blocker}`:` &middot; Email ${x.i+1} &mdash; ${ELABELS[x.i].label}`}${x.lead.owner?` <span style="color:rgba(255,255,255,.45);font-size:11px">&middot; ${x.lead.owner}</span>`:''}</div>
+          <span class="ttag ${x.t==='overdue'||x.t==='blocked'?'r':'a'}">${x.t==='overdue'?'Overdue':x.t==='blocked'?'Blocked':'Due today'}</span>
+        </div>`).join('')}
+    </div>`:'';
+
+  // Stage bars
+  const sc={};STAGES.forEach(s=>sc[s]=0);activeLeads.forEach(l=>sc[l.stage]=(sc[l.stage]||0)+1);
+  const mx=Math.max(...Object.values(sc),1);
+  document.getElementById('sbars').innerHTML=STAGES.slice(0,5).map(s=>`
+    <div class="sbar-row">
+      <div class="sbar-name">${s}</div>
+      <div class="sbar-wrap"><div class="sbar-fill" style="width:${sc[s]/mx*100}%"></div></div>
+      <div class="sbar-count">${sc[s]}</div>
+    </div>`).join('');
+
+  // Activity chart
+  const labels=[],data=[];
+  for(let i=27;i>=0;i--){
+    const d=new Date(now-i*86400000);
+    labels.push(i%7===0?d.toLocaleDateString('en',{month:'short',day:'numeric'}):'');
+    data.push(activities.filter(a=>{const ad=new Date(a.ts);return ad.toDateString()===d.toDateString()&&(a.type==='email'||a.type==='call')}).length);
+  }
+  if(actChart)actChart.destroy();
+  actChart=new Chart(document.getElementById('actChart').getContext('2d'),{
+    type:'bar',data:{labels,datasets:[{data,backgroundColor:'rgba(124,187,66,0.7)',borderRadius:4,borderSkipped:false}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{font:{size:9}}},y:{grid:{color:'rgba(0,0,0,.05)'},ticks:{font:{size:9},stepSize:1}}}}
+  });
+
+  // Source chart
+  const srcs={};activeLeads.forEach(l=>srcs[l.source||'Other']=(srcs[l.source||'Other']||0)+1);
+  if(srcChart)srcChart.destroy();
+  srcChart=new Chart(document.getElementById('srcChart').getContext('2d'),{
+    type:'doughnut',data:{labels:Object.keys(srcs),datasets:[{data:Object.values(srcs),backgroundColor:['#7cbb42','#3498db','#f39c12','#9b59b6','#e74c3c'],borderWidth:0}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{size:10},boxWidth:10}}}}
+  });
+
+  // Top leads
+  const top=[...activeLeads].filter(l=>l.value>0).sort((a,b)=>b.value-a.value).slice(0,5);
+  document.getElementById('top-leads').innerHTML=top.length?top.map(l=>`
+    <div class="li">
+      <div><div class="li-co" onclick="openLead('${l.id}')">${l.company}</div><div class="li-sec">${l.sector||''} &middot; <span class="badge ${bclass(l.stage)}">${l.stage}</span></div></div>
+      <div class="li-val">${fmt(l.value)}</div>
+    </div>`).join(''):'<div style="font-size:13px;color:var(--muted);padding:20px;text-align:center">Add deal values to leads to see top opportunities.</div>';
+
+  // Recent activity
+  const emap={email:'📧',call:'📞',meeting:'📅',note:'📝',status:'🔄',lead:'🏢'};
+  document.getElementById('recent-acts').innerHTML=activities.slice(0,8).map(a=>`
+    <div class="ai">
+      <div class="ai-ico ${a.type||'note'}">${emap[a.type]||'📝'}</div>
+      <div class="ai-txt"><strong>${a.company||''}</strong> ${a.desc}</div>
+      <div class="ai-time">${ago(a.ts)}</div>
+    </div>`).join('')||'<div style="font-size:13px;color:var(--muted);padding:20px;text-align:center">No activity yet.</div>';
+  renderLB();
+}
+
+// Leads
+function renderLeads(){
+  const s=document.getElementById('lsearch')?.value?.toLowerCase()||'';
+  const sf=document.getElementById('stagef')?.value||'';
+  const sec=document.getElementById('sectorf')?.value||'';
+  let ls=[...leads].filter(l=>!l._deleted);
+  const secs=[...new Set(ls.map(l=>l.sector).filter(Boolean))];
+  const sf2=document.getElementById('sectorf');
+  if(sf2){const cv=sf2.value;sf2.innerHTML='<option value="">All sectors</option>'+secs.map(x=>`<option ${x===cv?'selected':''}>${x}</option>`).join('');sf2.value=cv;}
+  if(s)ls=ls.filter(l=>l.company.toLowerCase().includes(s)||(l.sector||'').toLowerCase().includes(s));
+  if(sf)ls=ls.filter(l=>l.stage===sf);
+  if(sec)ls=ls.filter(l=>l.sector===sec);
+
+  if(lView==='table'){
+    document.getElementById('table-view').style.display='';
+    document.getElementById('kanban-view').style.display='none';
+    const emap={email:'📧',call:'📞',meeting:'📅',note:'📝',status:'🔄',lead:'🏢'};
+    document.getElementById('table-view').innerHTML=`
+      <div class="tw"><table>
+        <thead><tr><th>Company</th><th>Sector</th><th>Contact</th><th>Stage</th><th>Owner</th><th>Value</th><th>Last activity</th><th>Actions</th></tr></thead>
+        <tbody>${ls.length?ls.map(l=>{
+          const od=l.emails.filter((e,i)=>isOD(l,i)).length;
+          const sent=l.emails.filter(e=>e.status!=='draft').length;
+          const la=activities.filter(a=>a.leadId===l.id)[0];
+          const c=l.contacts?.[0];
+          return `<tr>
+            <td><div class="co-name" onclick="openLead('${l.id}')">${l.company}</div>${od?`<div style="font-size:10px;color:var(--red);font-weight:600;margin-top:2px">⚠ ${od} overdue</div>`:''}</td>
+            <td style="color:var(--muted);font-size:12px">${l.sector||'—'}</td>
+            <td style="font-size:12px">${c?`<div style="font-weight:600">${c.name}</div><div style="color:var(--muted)">${c.title||''}</div>`:'—'}</td>
+            <td><span class="badge ${bclass(l.stage)}">${l.stage}</span></td>
+            <td style="font-size:12px;font-weight:600;color:var(--gd)">${l.owner||'—'}</td>
+            <td style="font-weight:700;color:var(--g)">${fmt(l.value)}</td>
+            <td style="font-size:11px;color:var(--muted)">${la?ago(la.ts):'—'}</td>
+            <td style="display:flex;gap:4px">
+              <button class="btn btn-ghost btn-sm" onclick="openLead('${l.id}')">Open</button>
+              <button class="btn btn-ghost btn-sm" onclick="delLead('${l.id}')" style="color:var(--red)">✕</button>
+            </td>
+          </tr>`;
+        }).join(''):`<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--muted)">No leads yet. Click "+ Add Lead" to start.</td></tr>`}</tbody>
+      </table></div>`;
+  } else {
+    document.getElementById('table-view').style.display='none';
+    document.getElementById('kanban-view').style.display='';
+    document.getElementById('kanban-view').innerHTML=`<div class="kanban">${STAGES.map(stage=>{
+      const sl=ls.filter(l=>l.stage===stage);
+      return `<div class="kcol">
+        <div class="kh kh-${stage.replace(/\s/g,'')}"><span>${stage}</span><span style="background:rgba(0,0,0,.1);padding:1px 7px;border-radius:10px">${sl.length}</span></div>
+        <div class="kb">${sl.map(l=>{
+          const od=l.emails.filter((e,i)=>isOD(l,i)).length;
+          return `<div class="kcard" onclick="openLead('${l.id}')">
+            <div class="kco">${l.company}</div>
+            <div class="ksec">${l.sector||'No sector'}</div>
+            ${l.contacts?.[0]?`<div style="font-size:11px;color:var(--muted);margin-top:5px">👤 ${l.contacts[0].name}</div>`:''}
+            ${l.value?`<div class="kval">${fmt(l.value)}</div>`:''}
+            ${l.blocker?`<div style="font-size:10px;font-weight:600;color:var(--red);background:#fee2e2;padding:2px 6px;border-radius:10px;margin-top:4px;display:inline-block">⚠ ${l.blocker}</div>`:''}
+            ${l.owner?`<div style="font-size:10px;font-weight:600;color:var(--gd);margin-top:4px">👤 ${l.owner}</div>`:''}
+            ${od?`<div class="kov">⚠ ${od} overdue</div>`:''}
+          </div>`;
+        }).join('')}</div>
+      </div>`;
+    }).join('')}</div>`;
+  }
+}
+
+function setView(v){
+  lView=v;
+  document.getElementById('vtable').classList.toggle('active',v==='table');
+  document.getElementById('vkanban').classList.toggle('active',v==='kanban');
+  document.getElementById('table-view').style.display=v==='table'?'':'none';
+  document.getElementById('kanban-view').style.display=v==='kanban'?'':'none';
+  renderLeads();
+}
+
+async function delLead(id){
+  if(!confirm('Move this lead to Trash?'))return;
+  const l=leads.find(x=>x.id===id);if(!l)return;
+  l._deleted=true;l._deletedAt=new Date().toISOString();
+  await window.FB.saveLead(l);
+  closeDrawer();
+  toast('Moved to Trash — restore anytime');
+}
+
+// Lead drawer
+function openLead(id){
+  curLeadId=id;
+  const l=leads.find(x=>x.id===id);if(!l)return;
+  document.getElementById('d-co').textContent=l.company;
+  document.getElementById('d-sec').textContent=(l.sector||'')+(l.hq?' · '+l.hq:'');
+  setDTab('overview');
+  document.getElementById('lead-mo').classList.add('open');
+}
+function closeDrawer(){document.getElementById('lead-mo').classList.remove('open');curLeadId=null}
+
+function setDTab(t){
+  curDTab=t;
+  document.querySelectorAll('.mtab').forEach(x=>x.classList.toggle('active',x.textContent.toLowerCase()===t));
+  const l=leads.find(x=>x.id===curLeadId);if(!l)return;
+  const el=document.getElementById('d-content');
+
+  if(t==='overview'){
+    el.innerHTML=`
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+        <select class="fsel" onchange="changeStage('${l.id}',this.value)" style="flex:1">${STAGES.map(s=>`<option ${s===l.stage?'selected':''}>${s}</option>`).join('')}</select>
+        <input class="fi" type="number" placeholder="Deal value N" value="${l.value||''}" onchange="updVal('${l.id}',this.value)" style="width:130px">
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;align-items:center">
+        <div style="flex:1">
+          <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:5px">Blocker</div>
+          <select class="fsel" onchange="updBlocker('${l.id}',this.value)" style="width:100%">
+            <option value="" ${!l.blocker?'selected':''}>None</option>
+            ${['HR Pending','Landlord Pending','Docs Missing','Credit Review','Other'].map(b=>`<option ${l.blocker===b?'selected':''}>${b}</option>`).join('')}
+          </select>
+        </div>
+        <div style="flex:1">
+          <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:5px">Disbursed (N)</div>
+          <input class="fi" type="number" placeholder="0" value="${l.disbursed||''}" onchange="updDisbursed('${l.id}',this.value)">
+        </div>
+      </div>
+      <div class="igrid">
+        <div class="ifield"><div class="fl">HQ</div><div class="fv">${l.hq||'—'}</div></div>
+        <div class="ifield"><div class="fl">Size</div><div class="fv">${l.size||'—'}</div></div>
+        <div class="ifield"><div class="fl">Website</div><div class="fv">${l.website?`<a href="https://${l.website}" target="_blank">${l.website}</a>`:'—'}</div></div>
+        <div class="ifield"><div class="fl">Source</div><div class="fv">${l.source||'—'}</div></div>
+        <div class="ifield"><div class="fl">Lead Owner</div><div class="fv" style="font-weight:700;color:var(--gd)">${l.owner||'Unassigned'}</div></div>
+      </div>
+      ${l.fit?`<div style="font-size:12px;color:var(--muted);margin-bottom:14px;line-height:1.5">${l.fit}</div>`:''}
+      <div style="font-size:13px;font-weight:700;margin-bottom:10px">Contacts</div>
+      ${(l.contacts||[]).map((c,ci)=>`
+        <div class="ccard" id="ccard-${ci}">
+          <div class="ccname">${c.name||'Unknown'}</div>
+          <div class="cctitle">${c.title||''}</div>
+          <div class="cclinks">
+            ${c.email?`<a class="cclink" href="mailto:${c.email}">📧 Email</a>`:''}
+            ${c.phone?`<a class="cclink" href="tel:${c.phone}">📞 Call</a>`:''}
+            ${c.phone?`<a class="cclink" href="https://wa.me/${c.phone.replace(/\D/g,'')}">💬 WhatsApp</a>`:''}
+            ${c.linkedin?`<a class="cclink" href="${c.linkedin.startsWith('http')?c.linkedin:'https://'+c.linkedin}" target="_blank">💼 LinkedIn</a>`:''}
+            <button class="cclink" onclick="editContact('${l.id}',${ci})">✏️ Edit</button>
+          </div>
+        </div>`).join('')}
+      <button class="btn btn-ghost btn-sm" style="width:100%;margin-top:4px" onclick="addContact('${l.id}')">+ Add contact</button>`;
+  }
+
+  if(t==='emails'){
+    const now=new Date();
+    const lastSentIdx=l.emails.reduce((last,e,i)=>(e.status!=='draft'?i:last),-1);
+    const nextIdx=lastSentIdx+1;
+    const sentCount=l.emails.filter(e=>e.status!=='draft').length;
+    const scrType=l.sector&&(l.sector.toLowerCase().includes('hr')||l.sector.toLowerCase().includes('outsourc'))?'employer':'office';
+    el.innerHTML=`
+      <div style="background:var(--gll);border-radius:10px;padding:14px;border:1px solid var(--border);margin-bottom:16px">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:8px">Sequence progress</div>
+        <div style="display:flex;gap:3px;margin-bottom:8px">
+          ${l.emails.map((e,i)=>`<div style="flex:1;height:6px;border-radius:3px;background:${e.status==='replied'?'var(--g)':e.status==='opened'?'var(--amber)':e.status==='sent'?'var(--blue)':'var(--border)'}"></div>`).join('')}
+        </div>
+        <div style="font-size:12px;color:var(--muted)">${sentCount}/7 sent · ${nextIdx<7?('Next up: Email '+(nextIdx+1)+' — '+ELABELS[nextIdx].label):'Sequence complete 🎉'}</div>
+      </div>
+      ${l.emails.map((e,i)=>{
+        const od=isOD(l,i);
+        const isNext=i===nextIdx&&i<7;
+        let dueLabel='';
+        if(l.contactedAt&&e.status==='draft'){
+          const due=new Date(new Date(l.contactedAt).getTime()+EDAYS[i]*86400000);
+          const d=Math.ceil((due-now)/86400000);
+          if(d<0)dueLabel=`<span style="color:var(--red);font-size:11px;font-weight:600">⚠ ${Math.abs(d)}d overdue</span>`;
+          else if(d===0)dueLabel=`<span style="color:var(--amber);font-size:11px;font-weight:600">Due today</span>`;
+          else dueLabel=`<span style="color:var(--muted);font-size:11px">Due ${due.toLocaleDateString('en-GB',{day:'numeric',month:'short'})}</span>`;
+        }
+        return `<div style="border:1.5px solid ${isNext?'var(--g)':od?'var(--red)':'var(--border)'};border-radius:10px;padding:12px;margin-bottom:8px;background:${isNext?'var(--gll)':od?'#fff8f8':'#fff'}">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+            <div style="width:26px;height:26px;border-radius:7px;background:${e.status==='draft'?'var(--border)':'var(--g)'};color:${e.status==='draft'?'var(--muted)':'#fff'};font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0">${i+1}</div>
+            <div style="flex:1">
+              <div style="font-size:13px;font-weight:700">${ELABELS[i].label}</div>
+              <div style="font-size:11px;color:var(--muted);margin-top:2px">${ELABELS[i].timing}${dueLabel?' · ':''} ${dueLabel}</div>
+            </div>
+            <span class="badge b-${e.status}">${e.status}</span>
+          </div>
+          ${e.sentAt?`<div style="font-size:11px;color:var(--muted);margin-bottom:8px">Sent ${new Date(e.sentAt).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</div>`:''}
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <button class="btn btn-ghost btn-sm" onclick="openScriptForLead('${l.id}','${scrType}',${i})" style="color:var(--gd);border-color:var(--g);font-size:11px">📝 Get script</button>
+            ${e.status==='draft'?`<button class="btn btn-g btn-sm" onclick="markE('${l.id}',${i},'sent')">✓ Mark sent</button>`:''}
+            ${e.status==='sent'?`<button class="btn btn-ghost btn-sm" onclick="markE('${l.id}',${i},'opened')">👁 Opened</button><button class="btn btn-g btn-sm" onclick="markE('${l.id}',${i},'replied')">💬 Replied</button>`:''}
+            ${e.status==='opened'?`<button class="btn btn-g btn-sm" onclick="markE('${l.id}',${i},'replied')">💬 Replied</button>`:''}
+          </div>
+        </div>`;
+      }).join('')}`;
+  }
+
+  if(t==='activity'){
+    const acts=activities.filter(a=>a.leadId===l.id);
+    const emap={email:'📧',call:'📞',meeting:'📅',note:'📝',status:'🔄',lead:'🏢'};
+    el.innerHTML=`
+      <div style="display:flex;gap:8px;margin-bottom:14px">
+        <button class="btn btn-ghost btn-sm" onclick="logAct('${l.id}','call')">📞 Log call</button>
+        <button class="btn btn-ghost btn-sm" onclick="logAct('${l.id}','meeting')">📅 Log meeting</button>
+        <button class="btn btn-ghost btn-sm" onclick="logAct('${l.id}','note')">📝 Note</button>
+      </div>
+      ${acts.length?acts.map(a=>`
+        <div class="alitem">
+          <div class="alico">${emap[a.type]||'📝'}</div>
+          <div style="flex:1"><div class="altext">${a.desc}</div><div class="altime">${ago(a.ts)}</div></div>
+        </div>`).join(''):'<div style="font-size:13px;color:var(--muted);padding:20px;text-align:center">No activity yet.</div>'}`;
+  }
+
+  if(t==='notes'){
+    el.innerHTML=`
+      <textarea class="narea" id="ntxt">${l.notes||''}</textarea>
+      <button class="btn btn-g btn-sm" style="margin-top:8px" onclick="saveNotes('${l.id}')">Save notes</button>`;
+  }
+}
+
+async function changeStage(id,ns){
+  const l=leads.find(x=>x.id===id);if(!l)return;
+  const os=l.stage;l.stage=ns;
+  if(ns==='Contacted'&&!l.contactedAt)l.contactedAt=new Date().toISOString();
+  if(ns==='Closed'){const v=prompt('Deal value (N)?');if(v)l.value=parseInt(v);}
+  if(ns==='Lost'){const r=prompt('Why lost?');if(r)l.lossReason=r;}
+  await window.FB.saveLead(l);
+  await addAct({leadId:id,type:'status',company:l.company,desc:`Stage: ${os} -> ${ns}`});
+  toast('Stage updated');setDTab('overview');
+}
+
+async function updVal(id,v){
+  const l=leads.find(x=>x.id===id);if(!l)return;
+  l.value=parseInt(v)||0;await window.FB.saveLead(l);
+}
+async function updBlocker(id,v){
+  const l=leads.find(x=>x.id===id);if(!l)return;
+  l.blocker=v;await window.FB.saveLead(l);
+  toast(v?`Blocker set: ${v}`:'Blocker cleared');
+}
+async function updDisbursed(id,v){
+  const l=leads.find(x=>x.id===id);if(!l)return;
+  l.disbursed=parseInt(v)||0;await window.FB.saveLead(l);
+  toast('Disbursed amount saved');
+}
+
+function openScriptForLead(leadId,scrType,emailIdx){
+  const l=leads.find(x=>x.id===leadId);if(!l)return;
+  const c=l.contacts?.[0];
+  closeDrawer();
+  showTab('scripts');
+  setTimeout(()=>{
+    setScriptType(scrType);
+    if(c?.name)document.getElementById('scr-fname').value=c.name.split(' ')[0];
+    document.getElementById('scr-coname').value=l.company;
+    renderScripts();
+    // scroll to the right email
+    setTimeout(()=>{
+      const els=document.querySelectorAll('#scripts-output .so');
+      if(els[emailIdx])els[emailIdx].scrollIntoView({behavior:'smooth',block:'start'});
+    },200);
+  },100);
+}
+
+async function markE(lid,i,status){
+  const l=leads.find(x=>x.id===lid);if(!l)return;
+  l.emails[i].status=status;
+  if(status==='sent'){l.emails[i].sentAt=new Date().toISOString();}
+  if(status==='sent'&&!l.contactedAt)l.contactedAt=new Date().toISOString();
+  if(status==='sent'&&l.stage==='New'){l.stage='Contacted';}
+  if(status==='replied'&&l.stage==='Contacted'){l.stage='Replied';}
+  await window.FB.saveLead(l);
+  await addAct({leadId:lid,type:'email',company:l.company,desc:`Email ${i+1} (${ELABELS[i].label}) marked ${status}`});
+  toast('Updated');setDTab('emails');
+}
+
+function copyE(i){
+  const l=leads.find(x=>x.id===curLeadId);if(!l)return;
+  const e=l.emails[i];
+  navigator.clipboard.writeText('Subject: '+(e.subject||'')+'\n\n'+(e.body||'')).then(()=>toast('Copied'));
+}
+
+async function saveNotes(id){
+  const l=leads.find(x=>x.id===id);if(!l)return;
+  l.notes=document.getElementById('ntxt').value;
+  await window.FB.saveLead(l);toast('Notes saved');
+}
+
+async function logAct(leadId,type){
+  const l=leads.find(x=>x.id===leadId);if(!l)return;
+  const d=prompt('Details?');if(!d)return;
+  await addAct({leadId,type,company:l.company,desc:d});
+  toast('Logged');setDTab('activity');
+}
+
+async function addContact(lid){
+  const l=leads.find(x=>x.id===lid);if(!l)return;
+  const name=prompt('Name?');if(!name)return;
+  const title=prompt('Title?')||'';
+  const email=prompt('Email?')||'';
+  const phone=prompt('Phone?')||'';
+  l.contacts=l.contacts||[];
+  l.contacts.push({name,title,email,phone,linkedin:''});
+  await window.FB.saveLead(l);toast('Contact added');setDTab('overview');
+}
+
+function editContact(lid,ci){
+  const l=leads.find(x=>x.id===lid);if(!l)return;
+  const c=l.contacts[ci];if(!c)return;
+  const card=document.getElementById('ccard-'+ci);if(!card)return;
+  card.innerHTML=`
+    <div class="g2" style="margin-bottom:8px">
+      <div><label class="fl">Name</label><input class="fi" id="ec-name" value="${c.name||''}"></div>
+      <div><label class="fl">Title</label><input class="fi" id="ec-title" value="${c.title||''}"></div>
+      <div><label class="fl">Email</label><input class="fi" id="ec-email" value="${c.email||''}" type="email"></div>
+      <div><label class="fl">Phone</label><input class="fi" id="ec-phone" value="${c.phone||''}"></div>
+    </div>
+    <div style="margin-bottom:10px"><label class="fl">LinkedIn</label><input class="fi" id="ec-linkedin" value="${c.linkedin||''}"></div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-g btn-sm" onclick="saveContact('${lid}',${ci})">Save</button>
+      <button class="btn btn-ghost btn-sm" onclick="setDTab('overview')">Cancel</button>
+    </div>`;
+}
+
+async function saveContact(lid,ci){
+  const l=leads.find(x=>x.id===lid);if(!l)return;
+  l.contacts[ci]={
+    name:document.getElementById('ec-name').value.trim(),
+    title:document.getElementById('ec-title').value.trim(),
+    email:document.getElementById('ec-email').value.trim(),
+    phone:document.getElementById('ec-phone').value.trim(),
+    linkedin:document.getElementById('ec-linkedin').value.trim()
+  };
+  await window.FB.saveLead(l);toast('Contact saved');setDTab('overview');
+}
+
+// Add lead
+function openAddLead(){document.getElementById('al-mo').classList.add('open')}
+function closeAddLead(){document.getElementById('al-mo').classList.remove('open')}
+async function submitAddLead(){
+  const co=document.getElementById('al-co').value.trim();
+  if(!co){toast('Company name required','var(--red)');return;}
+  const l={
+    id:uid(),company:co,sector:document.getElementById('al-sec').value,
+    hq:document.getElementById('al-hq').value,size:document.getElementById('al-sz').value,
+    website:document.getElementById('al-web').value,value:parseInt(document.getElementById('al-val').value)||0,
+    blocker:document.getElementById('al-blocker').value||'',disbursed:0,
+    fit:document.getElementById('al-fit').value,source:document.getElementById('al-src').value,
+    owner:document.getElementById('al-owner').value||'Unassigned',
+    stage:'New',createdAt:new Date().toISOString(),notes:'',contactedAt:null,contacts:[],
+    emails:ELABELS.map(()=>({status:'draft',subject:'',body:''}))
+  };
+  const cn=document.getElementById('al-cn').value.trim();
+  if(cn)l.contacts.push({name:cn,title:document.getElementById('al-ct').value,email:document.getElementById('al-ce').value,phone:document.getElementById('al-cp').value,linkedin:document.getElementById('al-li').value});
+  await window.FB.saveLead(l);
+  await addAct({leadId:l.id,type:'lead',company:l.company,desc:'Lead added to CRM'});
+  closeAddLead();
+  ['al-co','al-sec','al-hq','al-sz','al-web','al-val','al-blocker','al-fit','al-owner','al-cn','al-ct','al-ce','al-cp','al-li'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
+  toast('Lead added');
+}
+
+// Activity helpers
+async function addAct(a){
+  const act={...a,id:uid(),ts:new Date().toISOString()};
+  await window.FB.saveActivity(act);
+}
+
+// Activity feed
+function renderFeed(){
+  const acts=activities.filter(a=>!a._deleted&&(ffilt==='all'||a.type===ffilt));
+  const emap={email:'📧',call:'📞',meeting:'📅',note:'📝',status:'🔄',lead:'🏢'};
+  document.getElementById('flist').innerHTML=acts.length?acts.map(a=>`
+    <div class="fitem">
+      <div class="fico ${a.type||'note'}">${emap[a.type]||'📝'}</div>
+      <div style="flex:1"><div class="fco">${a.company||''}</div><div class="fdesc">${a.desc}</div></div>
+      <div class="ftime">${ago(a.ts)}</div>
+    </div>`).join(''):'<div style="text-align:center;padding:40px;color:var(--muted);font-size:13px">No activity yet.</div>';
+}
+
+function setFF(f){
+  ffilt=f;
+  document.querySelectorAll('.ff').forEach(b=>b.classList.toggle('active',b.dataset.f===f));
+  renderFeed();
+}
+
+function quickLog(t){
+  qlType=t;
+  const titles={call:'Log a Call',meeting:'Log a Meeting',note:'Add a Note'};
+  document.getElementById('ql-title').textContent=titles[t];
+  document.getElementById('ql-lead').innerHTML='<option value="">General</option>'+leads.map(l=>`<option value="${l.id}">${l.company}</option>`).join('');
+  document.getElementById('ql-desc').value='';
+  document.getElementById('ql-mo').classList.add('open');
+}
+function closeQL(){document.getElementById('ql-mo').classList.remove('open')}
+async function submitQL(){
+  const lid=document.getElementById('ql-lead').value;
+  const desc=document.getElementById('ql-desc').value.trim();
+  if(!desc){toast('Add details','var(--red)');return;}
+  const l=lid?leads.find(x=>x.id===lid):null;
+  await addAct({leadId:lid||null,type:qlType,company:l?.company||'General',desc});
+  closeQL();toast('Logged');
+}
+
+// Settings
+function loadSettingsUI(){
+  const s=settings;
+  if(s.apiKey)document.getElementById('s-key').value=s.apiKey;
+  if(s.name)document.getElementById('s-name').value=s.name;
+  if(s.title)document.getElementById('s-title').value=s.title;
+  if(s.email)document.getElementById('s-email').value=s.email;
+  if(s.phone)document.getElementById('s-phone').value=s.phone;
+  if(s.tone)document.getElementById('s-tone').value=s.tone;
+  if(s.market)document.getElementById('s-mkt').value=s.market;
+}
+async function saveSettings(){
+  const s={
+    apiKey:document.getElementById('s-key').value.trim(),
+    name:document.getElementById('s-name').value.trim(),
+    title:document.getElementById('s-title').value.trim(),
+    email:document.getElementById('s-email').value.trim(),
+    phone:document.getElementById('s-phone').value.trim(),
+    tone:document.getElementById('s-tone').value,
+    market:document.getElementById('s-mkt').value
+  };
+  await window.FB.saveSettings(s);toast('Settings saved');
+}
+
+function exportCSV(){
+  const rows=[['Company','Sector','HQ','Size','Stage','Value','Source','Created']];
+  leads.forEach(l=>rows.push([l.company,l.sector||'',l.hq||'',l.size||'',l.stage,l.value||0,l.source||'',l.createdAt]));
+  const csv=rows.map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\n');
+  const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download='yalo-leads.csv';a.click();
+  toast('CSV exported');
+}
+
+async function clearData(){
+  if(!confirm('Delete ALL data? Cannot be undone.'))return;
+  if(!confirm('Are you sure?'))return;
+  for(const l of leads)await window.FB.deleteLead(l.id);
+  for(const a of activities)await window.FB.saveActivity({...a,_deleted:true});
+  toast('Data cleared');
+}
+
+// AI Generator
+function setGStep(s){
+  gStep=s;
+  [1,2,3,4].forEach(x=>{
+    const el=document.getElementById('gs'+x);
+    el.classList.toggle('active',x===s);el.classList.toggle('done',x<s);
+  });
+  [1,2,3].forEach(x=>document.getElementById('gc'+x).style.display=x===s?'':'none');
+  document.getElementById('gprog').style.width=(s/4*100)+'%';
+}
+
+document.querySelectorAll('#cgrid .cb').forEach(b=>{
+  b.addEventListener('click',()=>{document.querySelectorAll('#cgrid .cb').forEach(x=>x.classList.remove('on'));b.classList.add('on');gChannel=b.dataset.v;});
+});
+document.querySelectorAll('#tgrid .tb').forEach(b=>{
+  b.addEventListener('click',()=>{document.querySelectorAll('#tgrid .tb').forEach(x=>x.classList.remove('on'));b.classList.add('on');gTone=b.dataset.v;});
+});
+
+async function runResearch(){
+  const co=document.getElementById('gco').value.trim();
+  if(!co){toast('Enter a company name','var(--red)');return;}
+  const key=settings.apiKey;
+  if(!key){toast('Set API key in Settings first','var(--red)');showTab('settings');return;}
+  const btn=document.getElementById('res-btn');
+  btn.disabled=true;btn.textContent='Researching...';
+  document.getElementById('intel-out').innerHTML='<div style="display:flex;align-items:center;gap:8px;padding:16px;font-size:13px;color:var(--muted)"><div class="dot"></div><div class="dot"></div><div class="dot"></div>Searching the web...</div>';
+
+  const sys=`You are a B2B sales intelligence analyst. Research the company and return ONLY valid JSON, no markdown:\n{"company_name":"","sector":"","description":"","size":"","hq":"","website":"","yalo_fit":"","contacts":[{"name":"","title":""}],"news":[{"headline":"","summary":"","date":""}]}`;
+  try{
+    const r=await callClaude(sys,`Research: ${co} in ${document.getElementById('gmkt').value}. Context: ${document.getElementById('gctx').value||'none'}`,true,key);
+    const txt=r.content.filter(b=>b.type==='text').map(b=>b.text).join('');
+    const m=txt.match(/\{[\s\S]*\}/);
+    if(!m)throw new Error('No JSON returned');
+    gIntel=JSON.parse(m[0]);
+    renderIntel(gIntel);
+    setGStep(2);
+  }catch(e){
+    document.getElementById('intel-out').innerHTML=`<div style="color:var(--red);padding:12px;background:#fee2e2;border-radius:8px;font-size:13px">Research failed: ${e.message}</div>`;
+  }
+  btn.disabled=false;btn.textContent='Research Company';
+}
+
+function renderIntel(d){
+  gContact=d.contacts?.[0]||null;
+  document.getElementById('save-research-btn').style.display='';
+  document.getElementById('intel-out').innerHTML=`
+    <div class="icard">
+      <div style="font-size:14px;font-weight:800;margin-bottom:12px">✅ ${d.company_name}</div>
+      <div class="igr2">
+        <div class="ii"><div class="ii-l">Sector</div><div class="ii-v">${d.sector||'—'}</div></div>
+        <div class="ii"><div class="ii-l">Size</div><div class="ii-v">${d.size||'—'}</div></div>
+        <div class="ii"><div class="ii-l">HQ</div><div class="ii-v">${d.hq||'—'}</div></div>
+        <div class="ii"><div class="ii-l">Website</div><div class="ii-v">${d.website||'—'}</div></div>
+      </div>
+      <div style="font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:5px">YALO fit</div>
+      <div style="font-size:13px;margin-bottom:12px">${d.yalo_fit||'—'}</div>
+      ${(d.news||[]).map(n=>`<div class="ni2"><div class="nh">${n.headline}</div><div class="nm">${n.summary} · ${n.date}</div></div>`).join('')}
+    </div>`;
+  document.getElementById('csel-list').innerHTML=(d.contacts||[]).map((c,i)=>`
+    <div class="csi ${i===0?'sel':''}" onclick="selContact(this,'${encodeURIComponent(JSON.stringify(c))}')">
+      <div class="cav">${inits(c.name)}</div>
+      <div><div style="font-size:13px;font-weight:700">${c.name||'Unknown'}</div><div style="font-size:12px;color:var(--muted)">${c.title||''}</div></div>
+    </div>`).join('');
+}
+
+async function saveResearchToLead(){
+  if(!gIntel)return;
+  const co=gIntel.company_name||'Unknown';
+  const exists=leads.find(x=>x.company.toLowerCase()===co.toLowerCase()&&!x._deleted);
+  if(exists){toast('Lead already exists — opening it');openLead(exists.id);showTab('leads');return;}
+  const l={
+    id:uid(),company:co,sector:gIntel.sector||'',hq:gIntel.hq||'',size:gIntel.size||'',
+    website:gIntel.website||'',value:0,fit:gIntel.yalo_fit||'',source:'AI Research',
+    owner:'',stage:'New',createdAt:new Date().toISOString(),notes:'',contactedAt:null,
+    contacts:(gIntel.contacts||[]).map(c=>({name:c.name,title:c.title,email:'',phone:'',linkedin:''})),
+    emails:ELABELS.map(()=>({status:'draft',subject:'',body:'',sentAt:null}))
+  };
+  await window.FB.saveLead(l);
+  await addAct({leadId:l.id,type:'lead',company:l.company,desc:'Lead created from AI research'});
+  toast('Lead saved — opening now');
+  showTab('leads');
+  setTimeout(()=>openLead(l.id),500);
+}
+
+function selContact(el,cEnc){
+  document.querySelectorAll('.csi').forEach(x=>x.classList.remove('sel'));
+  el.classList.add('sel');
+  gContact=JSON.parse(decodeURIComponent(cEnc));
+}
+
+async function genContent(){
+  if(!gIntel){toast('Research first','var(--red)');setGStep(1);return;}
+  const key=settings.apiKey;
+  if(!key){toast('Set API key in Settings','var(--red)');showTab('settings');return;}
+  const otype=document.getElementById('gotype').value;
+  const prod=document.getElementById('gprod').value;
+  const sname=settings.name||'the YALO team';
+  const news=(gIntel.news||[]).map(n=>`- ${n.headline}: ${n.summary}`).join('\n')||'None.';
+  const cname=gContact?.name&&gContact.name!=='Unknown'?gContact.name:'the decision maker';
+
+  const yalo=`ABOUT YALO: Nigerian fintech/proptech. Pays rent upfront, business/employee repays monthly. Preserves working capital, improves cash flow, unlocks rent rebates from landlords.
+PRODUCTS: Staff housing financing, Office rent financing, Warehouse financing, Retail space financing, Working capital optimisation.
+VALUE: Stop locking N50M-N500M+ in rent. Improve cash flow. Unlock rent rebates. Zero operational complexity. Improve employee welfare.
+OBJECTIONS: Have cash -> capital should generate returns. Don't borrow -> cash-flow optimisation not debt. Have landlord -> YALO works alongside. Cost -> returns outweigh cost.
+VOICE: Empowering, Clear, Collaborative. Never hard sell. Never jargon. Position YALO as a strategic financial partner.`;
+
+  const rules=`EMAIL RULES (Hormozi/top copywriter standard):
+NEVER: "I hope this email finds you well" / "I wanted to reach out" / "My name is" / start with "I"
+ALWAYS: First line = specific researched observation about their company
+ALWAYS: Pain before product
+STRUCTURE: Research observation -> industry pain story -> YALO one-liner -> low-friction CTA -> P.S. with result number
+SUBJECT: 4-6 words, specific, never salesy
+CTA: "Worth 15 minutes?" not "I'd love to schedule a call to discuss synergies"
+Sign off: ${sname}, YALO Technologies`;
+
+  document.getElementById('gen-out').innerHTML='<div style="display:flex;align-items:center;gap:8px;padding:20px;font-size:13px;color:var(--muted)"><div class="dot"></div><div class="dot"></div><div class="dot"></div>Writing your scripts...</div>';
+  document.getElementById('save-row').style.display='none';
+
+  if(otype==='sequence'){
+    const bp=`
+E1 Research Hook (Day 1): Specific ${gIntel.company_name} observation from news. Third-party pain story. Pain in their language. One YALO sentence. CTA "Worth 15 minutes?". PS with specific N result.
+E2 Insight Drop (Day 3): Fresh contrarian industry insight. NEVER mention follow-up. CTA "Does this match what you're seeing?"
+E3 Case Study (Day 7): "One of our clients in [similar sector]..." Specific before/after N number. CTA "Happy to show you how for ${gIntel.company_name}"
+E4 Pain Amplifier (Day 14): Calculate cost of inaction at their size. Make N number feel real. CTA "Shall I run the numbers for ${gIntel.company_name}?"
+E5 New Angle (Day 21): Different product angle entirely. Write as if email 1. No reference to previous outreach.
+E6 Social Proof Bomb (Day 30): Credibility signal - partner name, press, milestone. Share as news not selling.
+E7 Honest Breakup (Day 45): Acknowledge outreach respectfully. Graceful out. Binary CTA.`;
+
+    const sys=`You are a world-class B2B sales copywriter for YALO Technologies.\n${yalo}\n${rules}\nReturn ONLY valid JSON array, no markdown:\n[{"email":1,"label":"","timing":"","subject":"","body":""}]`;
+    const usr=`Write 7-email sequence for:\nContact: ${cname} (${gContact?.title||'decision maker'})\nCompany: ${gIntel.company_name} | Sector: ${gIntel.sector} | Size: ${gIntel.size} | HQ: ${gIntel.hq}\nAbout: ${gIntel.description}\nYALO fit: ${gIntel.yalo_fit}\nProduct: ${prod} | Tone: ${gTone}\nRecent signals:\n${news}\nBlueprints:\n${bp}`;
+    try{
+      const r=await callClaude(sys,usr,false,key,6000);
+      const txt=r.content.filter(b=>b.type==='text').map(b=>b.text).join('');
+      const m=txt.match(/\[[\s\S]*\]/);
+      if(!m)throw new Error('No JSON');
+      genSeq=JSON.parse(m[0]);
+      document.getElementById('gen-out').innerHTML=genSeq.map((e,i)=>`
+        <div class="so">
+          <div class="soh">
+            <div class="son">${e.email}</div>
+            <div style="flex:1"><div class="sol">${ELABELS[i]?.label||e.label}</div><div class="sot">${ELABELS[i]?.timing||e.timing}</div></div>
+            <button class="btn btn-ghost btn-sm" onclick="cpySeq(${i})">Copy</button>
+          </div>
+          <div class="sob">
+            <div class="sosl">Subject</div>
+            <div class="sosv">${e.subject||''}</div>
+            <div class="sotext">${(e.body||'').replace(/\\n/g,'\n')}</div>
+          </div>
+        </div>`).join('');
+      document.getElementById('save-row').style.display='flex';
+    }catch(er){
+      document.getElementById('gen-out').innerHTML=`<div style="color:var(--red);padding:12px;background:#fee2e2;border-radius:8px;font-size:13px">Failed: ${er.message}</div>`;
+    }
+  } else {
+    const sys=`You are a senior sales operator for YALO Technologies.\n${yalo}\n${rules}\nWrite ONLY the script. For email: Subject: line first. For call: opening->pitch->probe->close.`;
+    const usr=`Write a ${gChannel} for:\nContact: ${cname} (${gContact?.title||'decision maker'})\nCompany: ${gIntel.company_name} | Sector: ${gIntel.sector} | Size: ${gIntel.size}\nAbout: ${gIntel.description}\nFit: ${gIntel.yalo_fit}\nProduct: ${prod} | Tone: ${gTone}\nSignals: ${news}`;
+    try{
+      const r=await callClaude(sys,usr,false,key,1200);
+      const txt=r.content.filter(b=>b.type==='text').map(b=>b.text).join('');
+      genSeq=[{email:1,label:gChannel,timing:'',subject:'',body:txt}];
+      document.getElementById('gen-out').innerHTML=`
+        <div class="so">
+          <div class="soh">
+            <div class="son">1</div>
+            <div style="flex:1"><div class="sol">${gChannel}</div><div class="sot">${gTone}</div></div>
+            <button class="btn btn-ghost btn-sm" onclick="navigator.clipboard.writeText(document.getElementById('sout').innerText).then(()=>toast('Copied'))">Copy</button>
+          </div>
+          <div class="sob"><div class="sotext" id="sout">${txt.replace(/\n/g,'<br>')}</div></div>
+        </div>`;
+      document.getElementById('save-row').style.display='flex';
+    }catch(er){
+      document.getElementById('gen-out').innerHTML=`<div style="color:var(--red);padding:12px;background:#fee2e2;border-radius:8px;font-size:13px">Failed: ${er.message}</div>`;
+    }
+  }
+}
+
+function cpySeq(i){
+  const e=genSeq[i];
+  navigator.clipboard.writeText('Subject: '+(e.subject||'')+'\n\n'+(e.body||'').replace(/\\n/g,'\n')).then(()=>toast('Email '+(i+1)+' copied'));
+}
+
+async function saveToLead(){
+  if(!genSeq.length)return;
+  const co=gIntel?.company_name||'Unknown';
+  let l=leads.find(x=>x.company.toLowerCase()===co.toLowerCase());
+  if(!l){
+    l={
+      id:uid(),company:co,sector:gIntel?.sector||'',hq:gIntel?.hq||'',size:gIntel?.size||'',
+      website:gIntel?.website||'',value:0,fit:gIntel?.yalo_fit||'',source:'AI Research',
+      stage:'New',createdAt:new Date().toISOString(),notes:'',contactedAt:null,
+      contacts:(gIntel?.contacts||[]).map(c=>({name:c.name,title:c.title,email:'',phone:'',linkedin:''})),
+      emails:ELABELS.map(()=>({status:'draft',subject:'',body:''}))
+    };
+  }
+  const isSeq=document.getElementById('gotype').value==='sequence';
+  if(isSeq){genSeq.forEach((e,i)=>{if(l.emails[i]){l.emails[i].subject=e.subject||'';l.emails[i].body=(e.body||'').replace(/\\n/g,'\n');}});}
+  else{l.emails[0].subject=genSeq[0].subject||'';l.emails[0].body=(genSeq[0].body||'').replace(/\\n/g,'\n');}
+  await window.FB.saveLead(l);
+  await addAct({leadId:l.id,type:'email',company:l.company,desc:`${isSeq?'7-email sequence':'Script'} generated and saved`});
+  toast('Saved to CRM');
+  genSeq=[];gIntel=null;setGStep(1);
+  document.getElementById('gco').value='';document.getElementById('gctx').value='';
+  document.getElementById('intel-out').innerHTML='';document.getElementById('gen-out').innerHTML='';
+}
+
+let lbMode='pipeline';
+function setLB(mode){
+  lbMode=mode;
+  document.getElementById('lb-pipeline').classList.toggle('active',mode==='pipeline');
+  document.getElementById('lb-closed').classList.toggle('active',mode==='closed');
+  renderLB();
+}
+function renderLB(){
+  const OWNERS=['Amusan','Akachi','Michael','Rhoda','Ezinne','Temitope','Morenike','Dele','Tolu','Steven','Others','Unassigned'];
+  const stats={};
+  OWNERS.forEach(o=>stats[o]={leads:0,value:0});
+  leads.filter(l=>!l._deleted).forEach(l=>{
+    const o=l.owner||'Unassigned';
+    if(!stats[o])stats[o]={leads:0,value:0};
+    stats[o].leads++;
+    const counts=lbMode==='pipeline'?!['Closed','Lost'].includes(l.stage):l.stage==='Closed';
+    if(counts&&l.value)stats[o].value+=l.value;
+  });
+  const sorted=Object.entries(stats).filter(([,v])=>v.leads>0).sort((a,b)=>b[1].value-a[1].value);
+  if(!sorted.length){document.getElementById('leaderboard').innerHTML='<div style="font-size:13px;color:var(--muted);text-align:center;padding:20px">No leads with owners yet. Assign owners when adding leads.</div>';return;}
+  const maxVal=sorted[0][1].value||1;
+  const medals=['🥇','🥈','🥉'];
+  document.getElementById('leaderboard').innerHTML=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px">
+    ${sorted.map(([owner,s],i)=>`
+      <div style="background:${i===0?'linear-gradient(135deg,var(--dark),#2d4a1e)':'var(--gll)'};border-radius:10px;padding:14px;border:1px solid ${i===0?'var(--g)':'var(--border)'}">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <div style="font-size:14px;font-weight:800;color:${i===0?'#fff':'var(--text)'}">${medals[i]?medals[i]+' ':''}${owner}</div>
+          <div style="font-size:11px;font-weight:600;color:${i===0?'rgba(255,255,255,.6)':'var(--muted)'};">${s.leads} lead${s.leads!==1?'s':''}</div>
+        </div>
+        <div style="font-size:22px;font-weight:800;color:${i===0?'var(--g)':'var(--gd)'};">${fmt(s.value)}</div>
+        <div style="font-size:11px;color:${i===0?'rgba(255,255,255,.5)':'var(--muted)'};margin-top:2px">${lbMode==='pipeline'?'Pipeline value':'Closed won'}</div>
+        <div style="height:4px;background:${i===0?'rgba(255,255,255,.15)':'var(--border)'};border-radius:2px;margin-top:10px;overflow:hidden">
+          <div style="height:100%;width:${s.value/maxVal*100}%;background:var(--g);border-radius:2px"></div>
+        </div>
+      </div>`).join('')}
+  </div>`;
+}
+
+function renderTrash(){
+  const deleted=leads.filter(l=>l._deleted);
+  const el=document.getElementById('trash-list');
+  if(!deleted.length){
+    el.innerHTML='<div style="text-align:center;padding:40px;color:var(--muted);font-size:13px">Trash is empty.</div>';
+    return;
+  }
+  el.innerHTML=deleted.map(l=>`
+    <div style="display:flex;align-items:center;gap:12px;padding:14px;border:1px solid var(--border);border-radius:10px;margin-bottom:10px;background:#fff">
+      <div style="flex:1">
+        <div style="font-size:14px;font-weight:700">${l.company}</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:2px">${l.sector||''} ${l.hq?'· '+l.hq:''} ${l.owner?'· '+l.owner:''}</div>
+        <div style="font-size:11px;color:var(--red);margin-top:3px">Deleted ${ago(l._deletedAt)}</div>
+      </div>
+      <button class="btn btn-g btn-sm" onclick="restoreLead('${l.id}')">Restore</button>
+      <button class="btn btn-red btn-sm" onclick="permDelete('${l.id}')">Delete forever</button>
+    </div>`).join('');
+}
+async function restoreLead(id){
+  const l=leads.find(x=>x.id===id);if(!l)return;
+  delete l._deleted;delete l._deletedAt;
+  await window.FB.saveLead(l);
+  toast('Lead restored');renderTrash();
+}
+async function permDelete(id){
+  if(!confirm('Permanently delete? Cannot be undone.'))return;
+  await window.FB.deleteLead(id);
+  toast('Permanently deleted');
+}
+
+// Script Library
+let scrType='office';
+function setScriptType(t){
+  scrType=t;
+  document.getElementById('scr-office').classList.toggle('active',t==='office');
+  document.getElementById('scr-employer').classList.toggle('active',t==='employer');
+  renderScripts();
+}
+const OFFICE_SCRIPTS=[
+  {day:'Day 1',label:'The Capital Question',subject:'Something worth thinking about before your next renewal',body:`Hi [FNAME],\n\nNo pitch in this email. Just something worth sharing.\n\nMost finance leaders I speak with spend real energy improving returns across the business. Then once or twice a year, they write a single cheque that locks N[LEASE] inside a landlord's account for twelve months. The capital sits there. It earns nothing. Nobody questions it because that is simply how commercial leases work.\n\nHere is the question worth sitting with.\n\nIf [CONAME] could keep that capital working in the business and simply finance the rent through a monthly payment structure instead, the maths changes significantly.\n\nI put together a short one-page breakdown of how businesses in Lagos are structuring this. Happy to send it over if it is relevant to how [CONAME] manages its lease obligations.\n\nWorth a look?\n\nBusayo`},
+  {day:'Day 3',label:'The Silent Cost',subject:'The silent cost of how most Nigerian businesses pay rent',body:`Hi [FNAME],\n\nA quick follow-up, but first something concrete.\n\nWhen you pay twelve months upfront, you are not just paying rent. You are making a capital allocation decision. You are choosing to park a large sum in a landlord's account for a year at zero return, instead of putting it to work inside the business.\n\nA business paying N[LEASE] in annual office rent upfront is effectively giving its landlord an interest-free loan for twelve months.\n\nThe businesses that have figured this out are not paying less rent. They are just paying it differently. Monthly, through a financing structure that keeps capital in the business. The landlord gets paid in full on day one.\n\nWorth a fifteen minute conversation to run the numbers on [CONAME]'s specific lease?\n\nBusayo`},
+  {day:'Day 5',label:'The Case Study',subject:'What happened when a business restructured its lease',body:`Hi [FNAME],\n\nA distribution company in Lagos had a combined office and warehouse lease coming up for renewal. The CFO had the liquidity but deploying it all into rent in one transaction meant pausing a growth cycle already generating strong returns.\n\nThey came to YALO three weeks before the renewal date.\n\nWe paid the landlord in full on signing day. The landlord, receiving guaranteed upfront payment, offered a negotiated rebate that reduced the effective lease cost. The business kept its capital and repaid YALO monthly from operating cash flow.\n\nWhen they had a strong quarter and wanted to settle the balance early, there was no penalty.\n\n[CONAME] is in a similar position. Worth fifteen minutes to walk through what this could look like for your lease specifically?\n\nBusayo`},
+  {day:'Day 8',label:'CEO Escalation',subject:"What is [CONAME]'s lease actually costing beyond the invoice?",body:`Hi [FNAME],\n\nI will be direct.\n\nIf [CONAME] is paying office or commercial space rent upfront, there is a number your P&L is not capturing. It is the cost of idle capital.\n\nYALO pays your landlord in full on day one. You repay monthly from operating cash flow. No collateral. No balance sheet complexity. No penalties if you want to settle early at any point.\n\nThe financing terms are straightforward and we walk through them on the call. But the starting question is simpler: what is that capital worth to your business if it stays working instead of sitting idle?\n\nI have time Thursday or Friday this week if either works.\n\nBusayo`},
+  {day:'Day 11',label:'Pattern Interrupt',subject:'Forget everything I said. Read this one instead.',body:`Hi [FNAME],\n\nI have sent a few emails about lease financing and capital efficiency. Let me step back completely.\n\nEvery growing business in Nigeria hits a version of the same problem. Cash gets consumed at the moments the business needs it most, and rent is one of the quietest contributors. Not because of the amount. Because of the timing.\n\nThe structure we offer is simple. YALO pays your landlord in full. You repay monthly. If you have a strong quarter and want to close it out early, you can, with no penalty.\n\nThat is all I am really offering. Not a product. A different relationship with how capital moves through your business.\n\nIf that is worth twenty minutes, I am easy to reach.\n\nBusayo`},
+  {day:'Day 14',label:'Social Proof',subject:'163 businesses. Here is what they stopped doing.',body:`Hi [FNAME],\n\nYALO works with 163 businesses across Nigeria. Offices, warehouses, retail spaces, logistics hubs, clinic chains.\n\nThe ones that came to us earliest have something in common now. They solved the lease problem. Their capital is deployed. When a growth opportunity shows up, they can move on it.\n\nAlmost all said the same thing when they eventually came on board: "We should have done this at the last renewal."\n\nTwo things most businesses only discover when they speak to us. First, we often negotiate a rebate from landlords who prefer guaranteed upfront payment. Second, if you want to settle early at any point, there is no penalty.\n\nDoes [CONAME] have a renewal coming in the next six months?\n\nBusayo`},
+  {day:'Day 18',label:'Honest Breakup',subject:'Should I close the loop?',body:`Hi [FNAME],\n\nI have reached out a few times and not heard back. I am going to stop after this one.\n\nBefore I leave you alone, one last thought.\n\nSomewhere in [CONAME]'s next twelve months there is a lease renewal. When that moment arrives, the default is to pay upfront because that is how it has always been done. We are the alternative.\n\nYALO pays the landlord in full. You repay monthly. We often capture a landlord rebate. No penalties on early settlement.\n\nIf that becomes relevant, you know where to find me.\n\nBusayo Amusan\nPartnerships | YALO Technologies\n\nP.S. If you want to see what the numbers look like for your specific lease, reply with an approximate annual figure. I will send back a one-page illustration within the hour. No commitment required.`}
+];
+const EMPLOYER_SCRIPTS=[
+  {day:'Day 1',label:'Retention Hook',subject:'Quick question about employee retention',body:`Hi [FNAME],\n\nA few weeks ago I was speaking with an HR Director at a growing company in Lagos.\n\nShe said something that stayed with me.\n\n"People are not leaving because they dislike the company. They are leaving because life is getting more expensive."\n\nWhen we dug deeper, one thing kept coming up. Rent. Not because employees cannot afford it. Because landlords want a year upfront while salaries arrive monthly.\n\nThat is why some employers are starting to offer housing support as part of their benefits package. Through YALO, employees access annual rent upfront and repay monthly through payroll. The company does not fund the rent. There is no increase in salary costs.\n\nIs housing-related financial stress something your team is seeing at [CONAME]?\n\nBusayo`},
+  {day:'Day 3',label:'Salary Is Not the Problem',subject:'The problem is not always salary',body:`Hi [FNAME],\n\nSomething I keep hearing from HR teams across Lagos is that compensation and cash flow get mixed up.\n\nAn employee can be genuinely happy with what they earn and still be under serious financial pressure.\n\nMost Lagos landlords require twelve months rent upfront. Most salaries arrive every thirty days. That is an eleven-month gap that someone has to bridge every single year, usually by borrowing or dipping into savings.\n\nThe result is that employees who are not actively looking for a new job become open to one the moment a recruiter reaches out. Not because they want to leave. Because they need the breathing room.\n\nHas [CONAME] looked at anything along those lines?\n\nBusayo`},
+  {day:'Day 5',label:'What Candidates Never Say',subject:'One thing candidates rarely say out loud',body:`Hi [FNAME],\n\nMost candidates will negotiate salary. Very few will tell you what is actually keeping them up at night.\n\nFor a lot of professionals in Lagos, housing sits near the top of that list. It shapes financial decisions quietly, and it shapes job decisions too.\n\nHousing support often creates a stronger response than many traditional benefits. Not because it is the most generous thing an employer can offer. Because it solves a problem employees think about every single month.\n\nWould it be useful to see how some employers are communicating this benefit to candidates and existing staff?\n\nBusayo`},
+  {day:'Day 8',label:'Retention Maths',subject:'Retention is usually cheaper than replacement',body:`Hi [FNAME],\n\nA simple observation.\n\nReplacing an employee almost always costs more than keeping one. Recruitment fees. Onboarding time. The productivity gap. The manager hours. The quiet disruption to the team.\n\nMost companies only calculate those costs after someone has already handed in their notice.\n\nWhat I have seen work well is employers who do not wait for the pressure to build. They put a support structure in place before anyone is asking for help. It costs them nothing directly. And it changes the way employees think about the company.\n\nHow much of [CONAME]'s current retention strategy focuses on financial wellbeing outside of salary?\n\nBusayo`},
+  {day:'Day 11',label:'Zero Cost to Employer',subject:'Most employee benefits cost money',body:`Hi [FNAME],\n\nOne thing I have noticed is that most benefit ideas never make it past the first internal conversation.\n\nSalary increases cost money. Bonuses cost money. Allowances cost money.\n\nHousing support is different.\n\nThrough YALO, employees access annual rent financing and repay monthly through payroll. The employer does not fund the rent. No increase in salary costs. No complex administration. YALO handles documentation, landlord engagement, and payment logistics.\n\nThe benefit is real for employees. The cost to the company is zero.\n\nWould it be unreasonable to spend fifteen minutes exploring whether it could work for [CONAME]?\n\nBusayo`},
+  {day:'Day 14',label:'163 Partners',subject:'What the employers getting the most from this have in common',body:`Hi [FNAME],\n\nThe employers getting the most traction from housing support are not the ones who launched it as a financial product. They positioned it as a wellbeing initiative. The message was simple: we know one of the biggest financial pressures our people face, and we want to help.\n\nWe work with over 163 employer partners across Nigeria. We have financed more than 1,600 rental accounts. The feedback we hear most is that the benefit generates more goodwill per naira than almost anything else they offer.\n\nSometimes the strongest benefits are not the most expensive ones. They are the most relevant.\n\nWould it make sense to show you how the model works in practice? I can keep it to twenty minutes.\n\nBusayo`},
+  {day:'Day 18',label:'Close the File',subject:'Close the file?',body:`Hi [FNAME],\n\nI have reached out a few times and not heard back.\n\nThat usually means one of three things. The timing is not right. It is not a priority. Or I have missed the mark entirely. All three are perfectly fine.\n\nThe employers that stand out today are not always the ones paying the highest salaries. They are often the ones solving the problems that actually matter to their people. Housing happens to be one of those problems.\n\nWhen the timing is right for [CONAME], whether that is next quarter or next year, I would be happy to pick this up again.\n\nThank you for your time.\n\nBusayo Amusan\nPartnerships | YALO Technologies`}
+];
+function renderScripts(){
+  const fname=document.getElementById('scr-fname')?.value?.trim()||'[First Name]';
+  const coname=document.getElementById('scr-coname')?.value?.trim()||'[Company Name]';
+  const lease=document.getElementById('scr-lease')?.value;
+  const leaseStr=lease?(parseInt(lease)/1000000).toFixed(0)+'M':'[LEASE AMOUNT]';
+  const seq=scrType==='office'?OFFICE_SCRIPTS:EMPLOYER_SCRIPTS;
+  const el=document.getElementById('scripts-output');if(!el)return;
+  el.innerHTML=seq.map((s,i)=>`
+    <div class="so" style="margin-bottom:12px">
+      <div class="soh">
+        <div class="son">${i+1}</div>
+        <div style="flex:1"><div class="sol">${s.label}</div><div class="sot">${s.day}</div></div>
+        <button class="btn btn-ghost btn-sm" onclick="cpyScript(${i})">📋 Copy</button>
+      </div>
+      <div class="sob">
+        <div class="sosl">Subject</div>
+        <div class="sosv">${s.subject.replace(/\[CONAME\]/g,coname).replace(/\[FNAME\]/g,fname)}</div>
+        <div class="sotext">${s.body.replace(/\[FNAME\]/g,fname).replace(/\[CONAME\]/g,coname).replace(/\[LEASE\]/g,leaseStr).replace(/\n/g,'<br>')}</div>
+      </div>
+    </div>`).join('');
+}
+function cpyScript(i){
+  const fname=document.getElementById('scr-fname')?.value?.trim()||'[First Name]';
+  const coname=document.getElementById('scr-coname')?.value?.trim()||'[Company Name]';
+  const lease=document.getElementById('scr-lease')?.value;
+  const leaseStr=lease?(parseInt(lease)/1000000).toFixed(0)+'M':'[LEASE AMOUNT]';
+  const seq=scrType==='office'?OFFICE_SCRIPTS:EMPLOYER_SCRIPTS;
+  const s=seq[i];
+  const txt='Subject: '+s.subject.replace(/\[CONAME\]/g,coname).replace(/\[FNAME\]/g,fname)+'\n\n'+s.body.replace(/\[FNAME\]/g,fname).replace(/\[CONAME\]/g,coname).replace(/\[LEASE\]/g,leaseStr);
+  navigator.clipboard.writeText(txt).then(()=>toast('Email '+(i+1)+' copied'));
+}
+
+async function callClaude(system,user,search,key,maxTokens=1000){
+  const body={model:'claude-sonnet-4-20250514',max_tokens:maxTokens,system,messages:[{role:'user',content:user}]};
+  if(search)body.tools=[{type:'web_search_20250305',name:'web_search'}];
+  const r=await fetch('https://api.anthropic.com/v1/messages',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','anthropic-version':'2023-06-01','x-api-key':key},
+    body:JSON.stringify(body)
+  });
+  if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.error?.message||'API error '+r.status);}
+  return r.json();
+}
+
+// Seed
+async function seedIfEmpty(){
+  // Query Firebase directly — includes soft-deleted leads
+  const count = await window.FB.countAllLeads();
+  if(count > 0) return;
+  const samples=[
+    {id:'seed-mactay-001',company:'MacTay Consulting',sector:'HR & Consulting',hq:'Lagos, Nigeria',size:'200-500 employees',website:'mactay.com',value:8000000,fit:'MacTay manages 17,000 outsourced employees — staff housing financing fits directly into their employee welfare offering.',source:'AI Research',owner:'Amusan',stage:'Contacted',contactedAt:new Date(Date.now()-5*86400000).toISOString(),notes:'Reached out via LinkedIn. Positive signals.',contacts:[{name:'Tayo Rotimi',title:'CEO',email:'tayo@mactay.com',phone:'+2348012345678',linkedin:'linkedin.com/in/tayorotimi'}],emails:ELABELS.map((x,i)=>({status:i===0?'sent':'draft',subject:i===0?"MacTay's 17,000 staff — one thing we noticed":'',body:i===0?'Dear Tayo,\n\nMacTay just launched Contact Centre Solutions — significant headcount expansion at a time when most firms are pulling back. Impressive.\n\nAt MacTay\'s scale, housing support is not a perk — it is a retention lever. YALO pays the rent upfront. Your staff repay monthly. Your working capital stays working.\n\nWorth 15 minutes?\n\nBusayo\nYALO Technologies\n\nP.S. One employer in Lagos freed up N43M in working capital last quarter just by restructuring annual staff housing costs. Happy to share how.':''}))}
+  ];
+  for(const l of samples){
+    await window.FB.saveLead(l);
+    await addAct({leadId:l.id,type:'email',company:l.company,desc:'Email 1 (The Research Hook) sent'});
+  }
+}
+</script>
+
+<div class="bottom-nav" id="bottom-nav">
+  <button class="bn-item active" id="bn-dashboard" onclick="showTab('dashboard')"><span>📊</span>Home</button>
+  <button class="bn-item" id="bn-leads" onclick="showTab('leads')"><span>🏢</span>Leads</button>
+  <button class="bn-item" id="bn-scripts" onclick="showTab('scripts')"><span>📝</span>Scripts</button>
+  <button class="bn-item" id="bn-warplan" onclick="showTab('warplan')"><span>⚔️</span>War Plan</button>
+  <button class="bn-item" id="bn-activity" onclick="showTab('activity')"><span>⚡</span>Activity</button>
+  <button class="bn-item" id="bn-settings" onclick="showTab('settings')"><span>⚙️</span>More</button>
+</div>
+</body>
+</html>
