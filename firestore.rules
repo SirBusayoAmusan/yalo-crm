@@ -1,0 +1,16 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Core CRM data used by the app (no Firebase Auth in use).
+    match /leads/{id}        { allow read, write: if true; }
+    match /activities/{id}   { allow read, write: if true; }
+    match /settings/{id}     { allow read, write: if true; }
+    match /reminders/{id}    { allow read, write: if true; }
+    match /notifications/{id}{ allow read, write: if true; }
+
+    // The public digital-card page (card.html) lets a visitor who scans your
+    // QR submit their own details as a new lead, and read your public profile.
+    // Those operations use the leads/settings rules above.
+  }
+}

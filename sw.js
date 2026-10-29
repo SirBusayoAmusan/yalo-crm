@@ -1,5 +1,5 @@
-const CACHE = 'yalo-crm-shell-v1';
-const SHELL = ['index.html', 'card.html', 'manifest.json'];
+const CACHE = 'yalo-crm-shell-v2';
+const SHELL = ['index.html', 'card.html', 'manifest.json', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png', 'favicon-32.png', 'icon.svg'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)));

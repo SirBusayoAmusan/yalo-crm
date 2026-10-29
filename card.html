@@ -3,121 +3,87 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Busayo Amusan — YALO Technologies</title>
+<title>Digital Card — YALO</title>
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#1a1a2e">
+<meta name="theme-color" content="#4f46e5">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 :root{
---g:#7cbb42;--gd:#5a9a2a;--gl:#e8f5d6;--gll:#f4fae8;
---dark:#1a1a2e;--bg:#f0f7e6;--text:#1a1a2e;--muted:#6b7a5e;
---border:#d4e8b0;--red:#e74c3c;--shadow:0 2px 12px rgba(124,187,66,.12);
+--g:#4f5bd5;--gd:#3a45c4;--gl:#e3e6fb;--gll:#f3f4fe;
+--dark:#171a2e;--bg:#f5f6fb;--text:#1a1d2e;--muted:#8a92a6;
+--border:#e6e9f5;--red:#ef4444;--shadow:0 6px 24px rgba(79,91,213,.09);
+--hero:linear-gradient(135deg,#5b6ef5 0%,#4f46e5 100%);
 }
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;justify-content:center;padding:28px 16px}
-.wrap{width:100%;max-width:420px}
-.card{background:var(--dark);border-radius:20px;padding:28px 24px;color:#fff;text-align:center;box-shadow:var(--shadow)}
-.logo-mark{font-size:22px;font-weight:800;color:var(--g);letter-spacing:-1px}
-.name{font-size:24px;font-weight:800;margin-top:14px}
-.title{font-size:14px;color:rgba(255,255,255,.65);margin-top:4px}
-.company{font-size:13px;color:var(--g);font-weight:600;margin-top:8px}
-.quicklinks{display:flex;gap:8px;justify-content:center;margin-top:18px;flex-wrap:wrap}
-.qlink{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);color:#fff;text-decoration:none;font-size:12px;font-weight:600;padding:9px 13px;border-radius:10px}
-.save-btn{display:block;width:100%;margin-top:20px;background:var(--g);color:#0e1a06;border:none;border-radius:12px;padding:15px;font-size:15px;font-weight:800;font-family:inherit;cursor:pointer}
-.save-btn:active{background:var(--gd)}
-.section{background:#fff;border:1px solid var(--border);border-radius:16px;padding:20px;margin-top:16px;box-shadow:var(--shadow)}
-.sec-title{font-size:15px;font-weight:800}
-.sec-sub{font-size:12px;color:var(--muted);margin-top:3px;margin-bottom:14px}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;justify-content:center;padding:24px 16px 40px}
+.wrap{width:100%;max-width:440px;animation:up .5s ease}
+@keyframes up{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+.vcard{background:var(--hero);border-radius:26px;padding:28px;color:#fff;position:relative;overflow:hidden;box-shadow:0 20px 50px rgba(79,70,229,.34);text-align:center}
+.vcard::after{content:"";position:absolute;right:-50px;top:-50px;width:200px;height:200px;border-radius:50%;background:rgba(255,255,255,.1)}
+.vcard::before{content:"";position:absolute;left:-40px;bottom:-60px;width:160px;height:160px;border-radius:50%;background:rgba(255,255,255,.07)}
+.brand{font-size:14px;font-weight:800;letter-spacing:.5px;opacity:.92;position:relative;z-index:2}
+.photo{width:104px;height:104px;border-radius:50%;border:3px solid rgba(255,255,255,.55);margin:16px auto 14px;object-fit:cover;background:rgba(255,255,255,.2);position:relative;z-index:2;display:flex;align-items:center;justify-content:center;font-size:36px;font-weight:800}
+.name{font-size:26px;font-weight:800;position:relative;z-index:2;line-height:1.15}
+.title{font-size:13px;opacity:.9;margin-top:4px;position:relative;z-index:2}
+.co{font-size:14px;font-weight:700;margin-top:3px;position:relative;z-index:2}
+.chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:18px;position:relative;z-index:2}
+.chip{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.22);border-radius:22px;padding:9px 15px;font-size:13px;font-weight:600;color:#fff;text-decoration:none}
+.chip:active{background:rgba(255,255,255,.3)}
+.save-btn{display:block;width:100%;margin-top:18px;background:#fff;color:var(--g);border:none;border-radius:16px;padding:16px;font-size:15px;font-weight:800;font-family:inherit;cursor:pointer;box-shadow:0 10px 24px rgba(0,0,0,.12);position:relative;z-index:2}
+.save-btn:active{transform:scale(.99)}
+.section{background:#fff;border:1px solid var(--border);border-radius:20px;padding:22px;margin-top:16px;box-shadow:var(--shadow)}
+.sec-title{font-size:16px;font-weight:800}
+.sec-sub{font-size:12px;color:var(--muted);margin-top:3px;margin-bottom:16px}
 .fg{margin-bottom:12px}
-.fl{font-size:12px;font-weight:700;color:var(--muted);display:block;margin-bottom:5px}
-.fi,.fta{width:100%;border:1.5px solid var(--border);border-radius:10px;padding:11px 12px;font-family:inherit;font-size:14px;background:var(--gll)}
-.fta{min-height:70px;resize:vertical}
-.fi:focus,.fta:focus{outline:none;border-color:var(--g)}
-.submit-btn{width:100%;background:var(--dark);color:#fff;border:none;border-radius:12px;padding:14px;font-size:14px;font-weight:800;font-family:inherit;cursor:pointer;margin-top:4px}
+.fl{font-size:12px;font-weight:700;color:var(--muted);display:block;margin-bottom:6px}
+.fi,.fta{width:100%;border:1.5px solid var(--border);border-radius:12px;padding:12px 14px;font-family:inherit;font-size:15px;background:var(--gll);outline:none;transition:.2s}
+.fta{min-height:72px;resize:vertical}
+.fi:focus,.fta:focus{border-color:var(--g);box-shadow:0 0 0 3px rgba(79,91,213,.14);background:#fff}
+.submit-btn{width:100%;background:var(--hero);color:#fff;border:none;border-radius:14px;padding:15px;font-size:15px;font-weight:800;font-family:inherit;cursor:pointer;margin-top:4px;box-shadow:0 8px 20px rgba(79,91,213,.28)}
 .submit-btn:disabled{opacity:.6}
-.msg{font-size:13px;font-weight:600;margin-top:12px;text-align:center;display:none}
+.msg{font-size:13px;font-weight:600;margin-top:14px;text-align:center;display:none;line-height:1.5}
 .msg.ok{display:block;color:var(--gd)}
 .msg.queued{display:block;color:#b8860b}
-.msg.err{display:block;color:var(--red)}
-.footer{text-align:center;font-size:11px;color:var(--muted);margin-top:18px}
+.footer{text-align:center;font-size:11px;color:var(--muted);margin-top:20px}
+.success-wrap{text-align:center;padding:10px 0}
+.success-ic{width:66px;height:66px;border-radius:50%;background:#d1fae5;color:#059669;display:flex;align-items:center;justify-content:center;font-size:32px;margin:0 auto 14px}
 </style>
 </head>
 <body>
 <div class="wrap">
 
-  <div class="card">
-    <div class="logo-mark">ya-lo</div>
-    <div class="name" id="c-name"></div>
+  <div class="vcard">
+    <div class="brand">ya-lo</div>
+    <div class="photo" id="c-photo">?</div>
+    <div class="name" id="c-name">Loading…</div>
     <div class="title" id="c-title"></div>
-    <div class="company" id="c-company"></div>
-    <div class="quicklinks">
-      <a class="qlink" id="c-call" href="#">📞 Call</a>
-      <a class="qlink" id="c-email" href="#">✉️ Email</a>
-      <a class="qlink" id="c-wa" href="#" target="_blank" rel="noopener">💬 WhatsApp</a>
-    </div>
+    <div class="co" id="c-co"></div>
+    <div class="chips" id="c-chips"></div>
     <button class="save-btn" onclick="saveContact()">⬇️ Save My Contact</button>
   </div>
 
-  <div class="section">
+  <div class="section" id="form-section">
     <div class="sec-title">Let's stay in touch</div>
-    <div class="sec-sub">Drop your details and I'll follow up directly.</div>
+    <div class="sec-sub">Drop your details and I'll follow up personally.</div>
     <form id="lead-form" onsubmit="submitLead(event)">
       <div class="fg"><label class="fl">Your name *</label><input class="fi" id="f-name" required placeholder="e.g. Tayo Rotimi"></div>
       <div class="fg"><label class="fl">Company</label><input class="fi" id="f-co" placeholder="e.g. MacTay Consulting"></div>
       <div class="fg"><label class="fl">Email</label><input class="fi" id="f-email" type="email" placeholder="you@company.com"></div>
-      <div class="fg"><label class="fl">Phone / WhatsApp</label><input class="fi" id="f-phone" placeholder="+234..."></div>
+      <div class="fg"><label class="fl">Phone / WhatsApp</label><input class="fi" id="f-phone" type="tel" placeholder="+234…"></div>
       <div class="fg"><label class="fl">What are you interested in?</label><textarea class="fta" id="f-note" placeholder="e.g. office rent financing for 40 staff"></textarea></div>
-      <button class="submit-btn" id="submit-btn" type="submit">Send my details</button>
+      <button class="submit-btn" id="submit-btn" type="submit">Send my details →</button>
     </form>
     <div class="msg" id="lead-msg"></div>
   </div>
 
-  <div class="footer">Powered by ya-lo</div>
+  <div class="footer">Powered by <b>ya-lo</b> · Sales CRM</div>
 </div>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getFirestore, doc, setDoc, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-
-// Edit these before printing your QR code.
-const ME = {
-  name: 'Busayo Amusan',
-  title: 'Head of Partnerships',
-  company: 'YALO Technologies',
-  email: 'support@yalo.ng',
-  phone: '',
-  website: 'https://yalo.ng'
-};
-
-document.getElementById('c-name').textContent = ME.name;
-document.getElementById('c-title').textContent = ME.title;
-document.getElementById('c-company').textContent = ME.company;
-document.getElementById('c-call').href = ME.phone ? `tel:${ME.phone}` : '#';
-document.getElementById('c-email').href = `mailto:${ME.email}`;
-document.getElementById('c-wa').href = ME.phone ? `https://wa.me/${ME.phone.replace(/[^0-9]/g,'')}` : '#';
-
-window.saveContact = function(){
-  const vcard = [
-    'BEGIN:VCARD','VERSION:3.0',
-    `FN:${ME.name}`,
-    `N:${ME.name.split(' ').slice(-1)[0]};${ME.name.split(' ').slice(0,-1).join(' ')};;;`,
-    `ORG:${ME.company}`,
-    `TITLE:${ME.title}`,
-    `EMAIL;TYPE=WORK:${ME.email}`,
-    ME.phone ? `TEL;TYPE=CELL:${ME.phone}` : '',
-    ME.website ? `URL:${ME.website}` : '',
-    'END:VCARD'
-  ].filter(Boolean).join('\r\n');
-  const blob = new Blob([vcard], {type:'text/vcard'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `${ME.name.replace(/\s+/g,'_')}.vcf`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
-};
+import { getFirestore, doc, setDoc, getDoc, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyD_0WnGjD1YKlrT86RXL79OvqfIoAm3ccc",
@@ -131,73 +97,106 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 enableIndexedDbPersistence(db).catch(()=>{});
 
-const QUEUE_KEY = 'yalo_pending_leads';
-function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+// Fallback profile (used if Settings hasn't loaded or offline first visit)
+const FALLBACK = { name:'Busayo Amusan', title:'Head of Partnerships', company:'YALO Technologies',
+  email:'support@yalo.ng', phone:'', website:'yalo.ng', linkedin:'', twitter:'', photo:'' };
+let ME = { ...FALLBACK };
 
-function loadQueue(){ try{ return JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]'); }catch(e){ return []; } }
-function saveQueue(q){ localStorage.setItem(QUEUE_KEY, JSON.stringify(q)); }
+function inits(n){ return (n||'?').trim().split(/\s+/).slice(0,2).map(w=>w[0]).join('').toUpperCase(); }
+function normUrl(u){ return u?(u.startsWith('http')?u:'https://'+u):''; }
 
-async function sendLead(lead){
-  await setDoc(doc(db, 'leads', lead.id), lead);
+function render(){
+  document.getElementById('c-name').textContent = ME.name||'';
+  document.getElementById('c-title').textContent = ME.title||'';
+  document.getElementById('c-co').textContent = ME.company||'';
+  const ph = document.getElementById('c-photo');
+  if(ME.photo){ ph.innerHTML = `<img src="${ME.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:50%" alt="">`; }
+  else { ph.textContent = inits(ME.name); }
+  document.title = `${ME.name} — ${ME.company||'YALO'}`;
+  const tw = ME.twitter? ME.twitter.replace(/^@/,'') : '';
+  const chip=(href,icon,label,ext)=> href?`<a class="chip" href="${href}" ${ext?'target="_blank" rel="noopener"':''}>${icon} ${label}</a>`:'';
+  document.getElementById('c-chips').innerHTML =
+    chip(ME.phone?`tel:${ME.phone}`:'','📞','Call') +
+    chip(ME.phone?`https://wa.me/${ME.phone.replace(/[^0-9]/g,'')}`:'','💬','WhatsApp',1) +
+    chip(ME.email?`mailto:${ME.email}`:'','✉️','Email') +
+    chip(normUrl(ME.linkedin),'in','LinkedIn',1) +
+    chip(tw?`https://x.com/${tw}`:'','𝕏','X',1) +
+    chip(normUrl(ME.website),'🌐','Website',1);
 }
+render();
 
-async function flushQueue(){
-  const q = loadQueue();
-  if (!q.length) return;
-  const remaining = [];
-  for (const lead of q){
-    try { await sendLead(lead); } catch(e){ remaining.push(lead); }
+// Pull live profile from Settings
+getDoc(doc(db,'settings','main')).then(snap=>{
+  if(snap.exists()){
+    const s = snap.data();
+    ME = { ...FALLBACK,
+      name:s.name||FALLBACK.name, title:s.title||FALLBACK.title, company:s.company||FALLBACK.company,
+      email:s.email||FALLBACK.email, phone:s.phone||'', website:s.website||FALLBACK.website,
+      linkedin:s.linkedin||'', twitter:s.twitter||'', photo:s.photo||'' };
+    render();
   }
-  saveQueue(remaining);
+}).catch(()=>{});
+
+window.saveContact = function(){
+  const parts=(ME.name||'').trim().split(/\s+/);
+  const last=parts.length>1?parts.pop():'';
+  const first=parts.join(' ');
+  const tw=ME.twitter?ME.twitter.replace(/^@/,''):'';
+  const vcard=['BEGIN:VCARD','VERSION:3.0',
+    `FN:${ME.name}`,`N:${last};${first};;;`,
+    ME.company?`ORG:${ME.company}`:'', ME.title?`TITLE:${ME.title}`:'',
+    ME.email?`EMAIL;TYPE=WORK:${ME.email}`:'', ME.phone?`TEL;TYPE=CELL:${ME.phone}`:'',
+    ME.website?`URL:${normUrl(ME.website)}`:'',
+    ME.linkedin?`X-SOCIALPROFILE;TYPE=linkedin:${normUrl(ME.linkedin)}`:'',
+    tw?`X-SOCIALPROFILE;TYPE=twitter:https://x.com/${tw}`:'',
+    'END:VCARD'].filter(Boolean).join('\r\n');
+  const blob=new Blob([vcard],{type:'text/vcard'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download=`${(ME.name||'contact').replace(/\s+/g,'_')}.vcf`;
+  document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+};
+
+const QUEUE_KEY='yalo_pending_leads';
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
+function loadQueue(){ try{ return JSON.parse(localStorage.getItem(QUEUE_KEY)||'[]'); }catch(e){ return []; } }
+function saveQueue(q){ try{ localStorage.setItem(QUEUE_KEY,JSON.stringify(q)); }catch(e){} }
+async function sendLead(lead){ await setDoc(doc(db,'leads',lead.id),lead); }
+async function flushQueue(){
+  const q=loadQueue(); if(!q.length)return;
+  const left=[];
+  for(const lead of q){ try{ await sendLead(lead); }catch(e){ left.push(lead); } }
+  saveQueue(left);
 }
-window.addEventListener('online', flushQueue);
+window.addEventListener('online',flushQueue);
 flushQueue();
 
-window.submitLead = async function(e){
+window.submitLead=async function(e){
   e.preventDefault();
-  const name = document.getElementById('f-name').value.trim();
-  if (!name) return;
-  const btn = document.getElementById('submit-btn');
-  const msg = document.getElementById('lead-msg');
-  btn.disabled = true;
-
-  const lead = {
-    id: uid(),
-    company: document.getElementById('f-co').value.trim() || name,
-    sector: '', hq: '', size: '', website: '', value: 0,
-    blocker: '', disbursed: 0, fit: '',
-    source: 'QR Card', owner: 'Unassigned', stage: 'New',
-    createdAt: new Date().toISOString(), notes: document.getElementById('f-note').value.trim(),
-    contactedAt: null,
-    contacts: [{
-      name, title: '',
-      email: document.getElementById('f-email').value.trim(),
-      phone: document.getElementById('f-phone').value.trim(),
-      linkedin: ''
-    }],
-    emails: []
+  const name=document.getElementById('f-name').value.trim();
+  if(!name)return;
+  const btn=document.getElementById('submit-btn');
+  const msg=document.getElementById('lead-msg');
+  btn.disabled=true;
+  const lead={
+    id:uid(),
+    company:document.getElementById('f-co').value.trim()||name,
+    sector:'',hq:'',size:'',website:'',value:0,blocker:'',disbursed:0,fit:'',
+    source:'QR Card',owner:ME.name?ME.name.split(' ')[0]:'Unassigned',stage:'New',
+    createdAt:new Date().toISOString(),notes:document.getElementById('f-note').value.trim(),contactedAt:null,
+    contacts:[{ name, title:'', email:document.getElementById('f-email').value.trim(), phone:document.getElementById('f-phone').value.trim(), linkedin:'' }],
+    emails:[]
   };
-
-  try {
-    await sendLead(lead);
-    msg.textContent = "Got it — I'll be in touch shortly!";
-    msg.className = 'msg ok';
-  } catch (err) {
-    const q = loadQueue();
-    q.push(lead);
-    saveQueue(q);
-    msg.textContent = "Saved on your device — this will send automatically once you're back online.";
-    msg.className = 'msg queued';
-  }
-  document.getElementById('lead-form').reset();
-  btn.disabled = false;
+  let queued=false;
+  try{ await sendLead(lead); }
+  catch(err){ const q=loadQueue(); q.push(lead); saveQueue(q); queued=true; }
+  document.getElementById('form-section').innerHTML =
+    `<div class="success-wrap"><div class="success-ic">✓</div>
+     <div class="sec-title">${queued?'Saved!':'Got it — thank you!'}</div>
+     <div class="sec-sub" style="margin-top:8px">${queued
+        ? "You're saved on this device and will send automatically once there's signal."
+        : (ME.name?ME.name.split(' ')[0]:'We')+" will be in touch shortly."}</div></div>`;
 };
-</script>
-
-<script>
-if('serviceWorker' in navigator){
-  window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
-}
 </script>
 </body>
 </html>

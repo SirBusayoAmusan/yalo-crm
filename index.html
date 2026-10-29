@@ -5,9 +5,16 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>YALO Sales CRM</title>
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#1a1a2e">
+<meta name="theme-color" content="#4f46e5">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="icon" type="image/svg+xml" href="icon.svg">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="YALO CRM">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot, getDocs, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
@@ -39,6 +46,33 @@ window.FB = {
   async saveSettings(s) {
     await setDoc(doc(db, "settings", "main"), s);
   },
+  async saveReminder(r) {
+    await setDoc(doc(db, "reminders", r.id), r);
+  },
+  async deleteReminder(id) {
+    await deleteDoc(doc(db, "reminders", id));
+  },
+  async saveNotification(n) {
+    await setDoc(doc(db, "notifications", n.id), n);
+  },
+  async deleteNotification(id) {
+    await deleteDoc(doc(db, "notifications", id));
+  },
+  listenReminders(cb) {
+    return onSnapshot(collection(db, "reminders"), snap => {
+      const out = [];
+      snap.forEach(d => out.push(d.data()));
+      cb(out);
+    }, err => console.warn("reminders listener:", err.code));
+  },
+  listenNotifications(cb) {
+    return onSnapshot(collection(db, "notifications"), snap => {
+      const out = [];
+      snap.forEach(d => out.push(d.data()));
+      out.sort((a,b) => new Date(b.ts) - new Date(a.ts));
+      cb(out);
+    }, err => console.warn("notifications listener:", err.code));
+  },
   async countAllLeads() {
     const snap = await getDocs(collection(db, "leads"));
     return snap.size;
@@ -48,7 +82,7 @@ window.FB = {
       const leads = [];
       snap.forEach(d => leads.push(d.data()));
       cb(leads);
-    });
+    }, err => console.warn("leads listener:", err.code));
   },
   listenActivities(cb) {
     return onSnapshot(collection(db, "activities"), snap => {
@@ -56,12 +90,12 @@ window.FB = {
       snap.forEach(d => acts.push(d.data()));
       acts.sort((a,b) => new Date(b.ts) - new Date(a.ts));
       cb(acts);
-    });
+    }, err => console.warn("activities listener:", err.code));
   },
   listenSettings(cb) {
     return onSnapshot(doc(db, "settings", "main"), snap => {
       cb(snap.exists() ? snap.data() : {});
-    });
+    }, err => console.warn("settings listener:", err.code));
   }
 };
 
@@ -69,22 +103,26 @@ window.dispatchEvent(new Event('firebase-ready'));
 </script>
 <style>
 :root{
---g:#7cbb42;--gd:#5a9a2a;--gl:#e8f5d6;--gll:#f4fae8;
---dark:#1a1a2e;--bg:#f0f7e6;--text:#1a1a2e;--muted:#6b7a5e;
---border:#d4e8b0;--red:#e74c3c;--amber:#f39c12;--blue:#3498db;--purple:#9b59b6;
---shadow:0 2px 12px rgba(124,187,66,.12);
+--g:#4f5bd5;--gd:#3a45c4;--gl:#e3e6fb;--gll:#f3f4fe;
+--dark:#171a2e;--bg:#f5f6fb;--text:#1a1d2e;--muted:#8a92a6;
+--border:#e6e9f5;--red:#ef4444;--amber:#f59e0b;--blue:#3b82f6;--purple:#9b59b6;
+--shadow:0 6px 24px rgba(79,91,213,.09);
+--hero:linear-gradient(135deg,#5b6ef5 0%,#4f46e5 100%);
+--radius:18px;
 }
 *{box-sizing:border-box;margin:0;padding:0}
+*{-webkit-tap-highlight-color:transparent}
+html{scroll-behavior:smooth}
 body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex}
 .sidebar{width:220px;min-height:100vh;background:var(--dark);display:flex;flex-direction:column;position:fixed;left:0;top:0;z-index:100}
-.logo{padding:24px 20px 20px;border-bottom:1px solid rgba(124,187,66,.2)}
+.logo{padding:24px 20px 20px;border-bottom:1px solid rgba(79,91,213,.2)}
 .logo-mark{font-size:26px;font-weight:800;color:var(--g);letter-spacing:-1px}
 .logo-tag{font-size:10px;color:rgba(255,255,255,.4);letter-spacing:2px;text-transform:uppercase;margin-top:2px}
 .nav{padding:16px 0;flex:1}
 .ni{display:flex;align-items:center;gap:10px;padding:11px 20px;cursor:pointer;color:rgba(255,255,255,.6);font-size:13px;font-weight:500;transition:.2s;border-left:3px solid transparent}
-.ni:hover{color:#fff;background:rgba(124,187,66,.1)}
-.ni.active{color:#fff;background:rgba(124,187,66,.15);border-left-color:var(--g)}
-.sfooter{padding:16px 20px;border-top:1px solid rgba(124,187,66,.2)}
+.ni:hover{color:#fff;background:rgba(79,91,213,.1)}
+.ni.active{color:#fff;background:rgba(79,91,213,.15);border-left-color:var(--g)}
+.sfooter{padding:16px 20px;border-top:1px solid rgba(79,91,213,.2)}
 .sync-dot{width:7px;height:7px;border-radius:50%;background:var(--red);display:inline-block;margin-right:6px}
 .sync-dot.on{background:var(--g)}
 .sync-txt{font-size:11px;color:rgba(255,255,255,.4)}
@@ -104,10 +142,10 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg);color:var(-
 .mc-val{font-size:32px;font-weight:800;line-height:1}
 .mc-val.g{color:var(--g)}.mc-val.r{color:var(--red)}.mc-val.a{color:var(--amber)}.mc-val.b{color:var(--blue)}
 .mc-sub{font-size:12px;color:var(--muted);margin-top:6px}
-.today{background:linear-gradient(135deg,var(--dark),#2d4a1e);border-radius:14px;padding:20px;margin-bottom:24px;color:#fff}
+.today{background:linear-gradient(135deg,var(--dark),#3a45c4);border-radius:14px;padding:20px;margin-bottom:24px;color:#fff}
 .today-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--g);margin-bottom:12px}
 .ti{display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.07);border-radius:8px;padding:10px 14px;cursor:pointer;transition:.2s;margin-bottom:6px}
-.ti:hover{background:rgba(124,187,66,.2)}
+.ti:hover{background:rgba(79,91,213,.2)}
 .tdot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
 .tdot.r{background:var(--red)}.tdot.a{background:var(--amber)}.tdot.g{background:var(--g)}
 .ttag{font-size:11px;font-weight:600;padding:2px 8px;border-radius:10px}
@@ -208,7 +246,7 @@ tr:hover td{background:var(--gll)}
 .cmsub{font-size:13px;color:var(--muted);margin-bottom:20px}
 .fl{display:block;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:5px}
 .fi{width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:8px;font-size:14px;font-family:inherit;outline:none;background:#fff;transition:.2s}
-.fi:focus{border-color:var(--g);box-shadow:0 0 0 3px rgba(124,187,66,.15)}
+.fi:focus{border-color:var(--g);box-shadow:0 0 0 3px rgba(79,91,213,.15)}
 .fsel2{width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:8px;font-size:14px;font-family:inherit;outline:none;background:#fff;cursor:pointer}
 .fsel2:focus{border-color:var(--g)}
 .fta{width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:8px;font-size:14px;font-family:inherit;outline:none;background:#fff;resize:vertical;min-height:70px}
@@ -250,11 +288,11 @@ tr:hover td{background:var(--gll)}
 .sset{background:#fff;border-radius:14px;padding:24px;box-shadow:var(--shadow);border:1px solid var(--border);margin-bottom:16px}
 .sstitle{font-size:15px;font-weight:700;margin-bottom:4px}
 .sssub{font-size:13px;color:var(--muted);margin-bottom:18px}
-.qlog{background:linear-gradient(135deg,var(--dark),#2d4a1e);border-radius:14px;padding:20px;margin-bottom:20px;color:#fff}
+.qlog{background:linear-gradient(135deg,var(--dark),#3a45c4);border-radius:14px;padding:20px;margin-bottom:20px;color:#fff}
 .ql-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--g);margin-bottom:12px}
 .qlrow{display:flex;gap:8px;flex-wrap:wrap}
-.qlb{padding:8px 14px;border-radius:8px;border:1px solid rgba(124,187,66,.3);background:rgba(255,255,255,.07);color:#fff;font-size:12px;font-weight:600;cursor:pointer;transition:.2s;font-family:inherit}
-.qlb:hover{background:rgba(124,187,66,.25);border-color:var(--g)}
+.qlb{padding:8px 14px;border-radius:8px;border:1px solid rgba(79,91,213,.3);background:rgba(255,255,255,.07);color:#fff;font-size:12px;font-weight:600;cursor:pointer;transition:.2s;font-family:inherit}
+.qlb:hover{background:rgba(79,91,213,.25);border-color:var(--g)}
 .ffilters{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap}
 .ff{padding:6px 14px;border-radius:20px;border:1px solid var(--border);font-size:12px;font-weight:600;cursor:pointer;background:#fff;color:var(--muted);transition:.2s;font-family:inherit}
 .ff.active{background:var(--g);color:#fff;border-color:var(--g)}
@@ -322,7 +360,7 @@ table{min-width:500px}
   display:none;
   position:fixed;bottom:0;left:0;right:0;
   background:var(--dark);
-  border-top:1px solid rgba(124,187,66,.2);
+  border-top:1px solid rgba(79,91,213,.2);
   z-index:200;height:62px;
   align-items:stretch;
 }
@@ -334,6 +372,145 @@ table{min-width:500px}
 }
 .bn-item.active{color:var(--g)}
 .bn-item span:first-child{font-size:20px}
+
+/* ============ FINTECH DESIGN LAYER ============ */
+body{-webkit-font-smoothing:antialiased}
+.content{animation:fadeUp .4s ease}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pop{0%{transform:scale(.9);opacity:0}100%{transform:scale(1);opacity:1}}
+@keyframes slideDown{from{opacity:0;transform:translateY(-16px)}to{opacity:1;transform:translateY(0)}}
+@keyframes shimmer{0%{background-position:-400px 0}100%{background-position:400px 0}}
+@keyframes floaty{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+@keyframes ring{0%,100%{transform:rotate(0)}10%,30%{transform:rotate(-12deg)}20%,40%{transform:rotate(12deg)}}
+
+.btn{border-radius:12px;letter-spacing:.01em}
+.btn-g{background:var(--hero);color:#fff;box-shadow:0 6px 16px rgba(79,91,213,.28)}
+.btn-g:hover{background:var(--gd);transform:translateY(-1px)}
+.btn-g:active{transform:translateY(0)}
+.card,.mc,.cc,.sset,.flist,.tw{border-radius:var(--radius)}
+.mc{transition:.25s}.mc:hover{transform:translateY(-3px);box-shadow:0 12px 30px rgba(79,91,213,.14)}
+.fi:focus,.fsel:focus,.fsel2:focus,.fta:focus,.narea:focus,.sbox input:focus{box-shadow:0 0 0 3px rgba(79,91,213,.14)}
+
+/* Topbar bell */
+.tb-actions{display:flex;gap:10px;align-items:center}
+.bell{position:relative;width:42px;height:42px;border-radius:12px;border:1px solid var(--border);background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:18px;transition:.2s}
+.bell:hover{background:var(--gll);border-color:var(--g)}
+.bell.rung{animation:ring .7s ease}
+.bell-badge{position:absolute;top:-5px;right:-5px;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--red);color:#fff;font-size:10px;font-weight:800;display:none;align-items:center;justify-content:center;box-shadow:0 0 0 2px #fff}
+.bell-badge.show{display:flex}
+
+/* Dashboard hero */
+.hero{background:var(--hero);border-radius:24px;padding:22px 22px 24px;color:#fff;margin-bottom:18px;position:relative;overflow:hidden;box-shadow:0 14px 36px rgba(79,70,229,.3)}
+.hero::after{content:"";position:absolute;right:-60px;top:-60px;width:220px;height:220px;border-radius:50%;background:rgba(255,255,255,.08)}
+.hero::before{content:"";position:absolute;right:30px;bottom:-80px;width:180px;height:180px;border-radius:50%;background:rgba(255,255,255,.06)}
+.hero-top{display:flex;align-items:center;gap:12px;position:relative;z-index:2}
+.hero-av{width:46px;height:46px;border-radius:50%;background:rgba(255,255,255,.2);border:2px solid rgba(255,255,255,.35);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;overflow:hidden;flex-shrink:0}
+.hero-av img{width:100%;height:100%;object-fit:cover}
+.hero-greet{flex:1;line-height:1.2}
+.hero-greet .g1{font-size:12px;opacity:.8}
+.hero-greet .g2{font-size:17px;font-weight:800}
+.hero-label{font-size:12px;opacity:.82;margin:20px 0 4px;position:relative;z-index:2}
+.hero-val{font-size:34px;font-weight:800;letter-spacing:-.5px;position:relative;z-index:2;line-height:1}
+.hero-sub{font-size:12px;opacity:.8;margin-top:6px;position:relative;z-index:2}
+.hero-actions{display:flex;gap:12px;margin-top:20px;position:relative;z-index:2}
+.hero-btn{flex:1;background:rgba(255,255,255,.16);backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.22);color:#fff;border-radius:14px;padding:14px;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;font-family:inherit;transition:.2s}
+.hero-btn:hover{background:rgba(255,255,255,.26)}
+.hero-btn.solid{background:#fff;color:var(--g)}
+.hero-btn.solid:hover{background:#eef0ff}
+
+/* Quick action tiles */
+.sec-head{display:flex;align-items:center;justify-content:space-between;margin:20px 2px 12px}
+.sec-head h3{font-size:16px;font-weight:800}
+.sec-head a{font-size:12px;color:var(--g);font-weight:700;cursor:pointer;text-decoration:none}
+.qa-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:6px}
+.qa{background:var(--gll);border:1px solid var(--border);border-radius:16px;padding:16px 10px;text-align:center;cursor:pointer;transition:.22s;font-family:inherit}
+.qa:hover{transform:translateY(-3px);background:#fff;box-shadow:0 10px 24px rgba(79,91,213,.14)}
+.qa-ic{width:46px;height:46px;border-radius:14px;background:var(--hero);color:#fff;display:flex;align-items:center;justify-content:center;font-size:21px;margin:0 auto 9px;box-shadow:0 6px 14px rgba(79,91,213,.28)}
+.qa-lb{font-size:12px;font-weight:700;color:var(--text)}
+
+/* Digital card */
+.mycard-wrap{max-width:460px;margin:0 auto}
+.vcard{background:var(--hero);border-radius:26px;padding:26px;color:#fff;position:relative;overflow:hidden;box-shadow:0 20px 50px rgba(79,70,229,.34)}
+.vcard::after{content:"";position:absolute;right:-50px;top:-50px;width:200px;height:200px;border-radius:50%;background:rgba(255,255,255,.09)}
+.vcard-brand{font-size:14px;font-weight:800;letter-spacing:.5px;opacity:.9;position:relative;z-index:2}
+.vcard-photo{width:92px;height:92px;border-radius:50%;border:3px solid rgba(255,255,255,.5);margin:16px 0 14px;object-fit:cover;background:rgba(255,255,255,.2);position:relative;z-index:2;display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:800}
+.vcard-name{font-size:24px;font-weight:800;position:relative;z-index:2;line-height:1.15}
+.vcard-title{font-size:13px;opacity:.88;margin-top:3px;position:relative;z-index:2}
+.vcard-co{font-size:13px;font-weight:700;margin-top:2px;position:relative;z-index:2}
+.vcard-chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px;position:relative;z-index:2}
+.vcard-chip{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.2);border-radius:20px;padding:7px 13px;font-size:12px;font-weight:600;color:#fff;text-decoration:none}
+.vcard-chip:hover{background:rgba(255,255,255,.28)}
+.qr-card{background:#fff;border:1px solid var(--border);border-radius:20px;padding:22px;margin-top:16px;text-align:center;box-shadow:var(--shadow)}
+.qr-box{display:inline-flex;padding:14px;background:#fff;border-radius:16px;box-shadow:0 4px 18px rgba(79,91,213,.14);border:1px solid var(--border)}
+.qr-box img,.qr-box canvas{display:block;border-radius:8px}
+.card-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px}
+
+/* Scanner */
+.scan-stage{background:var(--dark);border-radius:20px;overflow:hidden;position:relative;aspect-ratio:3/2;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.5)}
+.scan-stage video,.scan-stage img{width:100%;height:100%;object-fit:cover}
+.scan-frame{position:absolute;inset:16px;border:2px dashed rgba(255,255,255,.5);border-radius:14px;pointer-events:none}
+.scan-hint{font-size:13px;z-index:2;text-align:center;padding:20px}
+.queue-item{display:flex;align-items:center;gap:12px;background:#fff;border:1px solid var(--border);border-radius:14px;padding:12px;margin-bottom:10px}
+.queue-thumb{width:54px;height:40px;border-radius:8px;object-fit:cover;background:var(--gll);flex-shrink:0}
+.queue-stat{font-size:11px;font-weight:700;padding:3px 9px;border-radius:12px}
+.qs-pending{background:#fef3cd;color:#b7791f}.qs-done{background:#d1fae5;color:#065f46}.qs-err{background:#fee2e2;color:#991b1b}.qs-proc{background:#dbeafe;color:#1d4ed8}
+.spin{width:16px;height:16px;border:2px solid var(--gl);border-top-color:var(--g);border-radius:50%;animation:spin .7s linear infinite;display:inline-block}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* Notifications center */
+.notif-panel{position:fixed;top:0;right:0;width:380px;max-width:92vw;height:100vh;background:#fff;box-shadow:-10px 0 40px rgba(20,24,60,.18);z-index:400;transform:translateX(100%);transition:.32s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column}
+.notif-panel.open{transform:translateX(0)}
+.notif-head{padding:20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.notif-head h3{font-size:17px;font-weight:800}
+.notif-body{flex:1;overflow-y:auto;padding:12px}
+.notif-item{display:flex;gap:12px;padding:13px;border-radius:14px;margin-bottom:8px;background:var(--gll);border:1px solid var(--border);cursor:pointer;transition:.2s}
+.notif-item:hover{background:#fff;box-shadow:var(--shadow)}
+.notif-item.unread{background:#eef0ff;border-color:#c7cdf7}
+.notif-ic{width:40px;height:40px;border-radius:12px;background:var(--hero);color:#fff;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.notif-ic.rem{background:linear-gradient(135deg,#f59e0b,#f97316)}
+.notif-ic.scan{background:linear-gradient(135deg,#10b981,#059669)}
+.notif-tx{flex:1;min-width:0}
+.notif-tx .t{font-size:13px;font-weight:700}
+.notif-tx .d{font-size:12px;color:var(--muted);margin-top:2px}
+.notif-tx .w{font-size:11px;color:var(--g);font-weight:600;margin-top:4px}
+.notif-empty{text-align:center;color:var(--muted);font-size:13px;padding:50px 20px}
+
+/* Reminders */
+.rem-card{background:#fff;border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:12px;display:flex;gap:14px;align-items:flex-start;transition:.2s;box-shadow:var(--shadow)}
+.rem-card.due{border-color:var(--amber);background:#fffbf2}
+.rem-card.overdue{border-color:var(--red);background:#fff6f6}
+.rem-when-box{text-align:center;flex-shrink:0;width:52px}
+.rem-when-box .d{font-size:20px;font-weight:800;line-height:1;color:var(--g)}
+.rem-when-box .m{font-size:10px;font-weight:700;text-transform:uppercase;color:var(--muted)}
+.rem-when-box .ti{font-size:11px;color:var(--muted);margin-top:3px}
+.rem-main{flex:1;min-width:0}
+.rem-co{font-size:14px;font-weight:800}
+.rem-note{font-size:12px;color:var(--muted);margin-top:3px;line-height:1.4}
+.rem-acts{display:flex;gap:7px;margin-top:10px;flex-wrap:wrap}
+.chip-btn{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:700;padding:6px 12px;border-radius:10px;text-decoration:none;cursor:pointer;border:none;font-family:inherit;transition:.2s}
+.chip-wa{background:#25d366;color:#fff}.chip-wa:hover{background:#1da851}
+.chip-done{background:var(--gll);color:var(--g);border:1px solid var(--border)}
+.chip-snooze{background:var(--gll);color:var(--muted);border:1px solid var(--border)}
+.rem-tag{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;padding:3px 8px;border-radius:10px;background:var(--gl);color:var(--g);margin-top:6px}
+
+/* Install banner */
+.install-banner{position:fixed;left:14px;right:14px;bottom:76px;background:var(--dark);color:#fff;border-radius:16px;padding:14px 16px;display:none;align-items:center;gap:12px;z-index:250;box-shadow:0 12px 30px rgba(0,0,0,.3);animation:slideDown .4s}
+.install-banner.show{display:flex}
+.install-banner .ib-ic{width:40px;height:40px;border-radius:11px;background:var(--hero);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+.install-banner .ib-tx{flex:1;font-size:12px;line-height:1.35}
+.install-banner .ib-tx b{font-size:13px}
+
+.photo-drop{width:92px;height:92px;border-radius:50%;border:2px dashed var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;overflow:hidden;background:var(--gll);font-size:12px;color:var(--muted);text-align:center;flex-shrink:0}
+.photo-drop img{width:100%;height:100%;object-fit:cover}
+
+@media(max-width:768px){
+.notif-panel{width:100vw;max-width:100vw}
+.qa-grid{gap:10px}
+.qa-ic{width:42px;height:42px;font-size:19px}
+.hero-val{font-size:30px}
+.card-actions{grid-template-columns:1fr 1fr}
+.bell{width:40px;height:40px}
+}
 </style>
 </head>
 <body>
@@ -344,14 +521,17 @@ table{min-width:500px}
     <div class="logo-tag">Sales CRM</div>
   </div>
   <div class="nav">
-    <div class="ni" onclick="showTab('dashboard')"><span style="font-size:17px">📊</span><span>Dashboard</span></div>
-    <div class="ni" onclick="showTab('leads')"><span style="font-size:17px">🏢</span><span>Leads</span></div>
-    <div class="ni" onclick="showTab('generator')"><span style="font-size:17px">🔍</span><span>Research</span></div>
-    <div class="ni" onclick="showTab('scripts')"><span style="font-size:17px">📝</span><span>Scripts</span></div>
-    <div class="ni" onclick="showTab('warplan')"><span style="font-size:17px">⚔️</span><span>War Plan</span></div>
-    <div class="ni" onclick="showTab('activity')"><span style="font-size:17px">⚡</span><span>Activity</span></div>
-    <div class="ni" onclick="showTab('trash')"><span style="font-size:17px">🗑️</span><span>Trash</span></div>
-    <div class="ni" onclick="showTab('settings')"><span style="font-size:17px">⚙️</span><span>Settings</span></div>
+    <div class="ni" data-tab="dashboard" onclick="showTab('dashboard')"><span style="font-size:17px">📊</span><span>Dashboard</span></div>
+    <div class="ni" data-tab="leads" onclick="showTab('leads')"><span style="font-size:17px">🏢</span><span>Leads</span></div>
+    <div class="ni" data-tab="scan" onclick="showTab('scan')"><span style="font-size:17px">📸</span><span>Scan Card</span></div>
+    <div class="ni" data-tab="mycard" onclick="showTab('mycard')"><span style="font-size:17px">🪪</span><span>My Card</span></div>
+    <div class="ni" data-tab="reminders" onclick="showTab('reminders')"><span style="font-size:17px">⏰</span><span>Reminders</span></div>
+    <div class="ni" data-tab="generator" onclick="showTab('generator')"><span style="font-size:17px">🔍</span><span>Research</span></div>
+    <div class="ni" data-tab="scripts" onclick="showTab('scripts')"><span style="font-size:17px">📝</span><span>Scripts</span></div>
+    <div class="ni" data-tab="warplan" onclick="showTab('warplan')"><span style="font-size:17px">⚔️</span><span>War Plan</span></div>
+    <div class="ni" data-tab="activity" onclick="showTab('activity')"><span style="font-size:17px">⚡</span><span>Activity</span></div>
+    <div class="ni" data-tab="trash" onclick="showTab('trash')"><span style="font-size:17px">🗑️</span><span>Trash</span></div>
+    <div class="ni" data-tab="settings" onclick="showTab('settings')"><span style="font-size:17px">⚙️</span><span>Settings</span></div>
   </div>
   <div class="sfooter">
     <span class="sync-dot" id="sync-dot"></span>
@@ -362,13 +542,39 @@ table{min-width:500px}
 <div class="main">
   <div class="topbar">
     <div class="page-title" id="page-title">Dashboard</div>
-    <div style="display:flex;gap:10px">
+    <div class="tb-actions">
+      <button class="bell" id="bell-btn" onclick="toggleNotifs()" title="Notifications">🔔<span class="bell-badge" id="bell-badge">0</span></button>
       <button class="btn btn-g" onclick="openAddLead()">+ Add Lead</button>
     </div>
   </div>
 
   <!-- DASHBOARD -->
   <div class="content" id="tab-dashboard">
+    <div class="hero">
+      <div class="hero-top">
+        <div class="hero-av" id="hero-av">?</div>
+        <div class="hero-greet">
+          <div class="g1" id="hero-greet-time">Good day,</div>
+          <div class="g2" id="hero-greet-name">YALO Sales</div>
+        </div>
+        <button class="hero-btn" style="flex:0;padding:10px 12px" onclick="showTab('mycard')" title="My Card">🪪</button>
+      </div>
+      <div class="hero-label">Pipeline value</div>
+      <div class="hero-val" id="hero-pipeline">N0</div>
+      <div class="hero-sub" id="hero-sub">Loading your pipeline…</div>
+      <div class="hero-actions">
+        <button class="hero-btn solid" onclick="showTab('scan')">📸 Scan a Card</button>
+        <button class="hero-btn" onclick="openAddLead()">＋ Add Lead</button>
+      </div>
+    </div>
+
+    <div class="qa-grid">
+      <button class="qa" onclick="showTab('scan')"><div class="qa-ic">📸</div><div class="qa-lb">Scan Card</div></button>
+      <button class="qa" onclick="showTab('mycard')"><div class="qa-ic">🪪</div><div class="qa-lb">My Card</div></button>
+      <button class="qa" onclick="showTab('reminders')"><div class="qa-ic">⏰</div><div class="qa-lb">Reminders</div></button>
+      <button class="qa" onclick="showTab('leads')"><div class="qa-ic">🏢</div><div class="qa-lb">Leads</div></button>
+    </div>
+
     <div class="metrics" id="metrics"></div>
     <div id="today-wrap"></div>
     <div class="charts-row">
@@ -396,6 +602,65 @@ table{min-width:500px}
       </div>
       <div id="leaderboard"></div>
     </div>
+  </div>
+
+  <!-- MY CARD -->
+  <div class="content" id="tab-mycard" style="display:none">
+    <div class="mycard-wrap">
+      <div class="vcard" id="vcard-preview"></div>
+      <div class="qr-card">
+        <div style="font-size:13px;font-weight:800;margin-bottom:3px">Your scannable QR</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:14px">Anyone who scans this saves your contact & can send you their details.</div>
+        <div class="qr-box" id="qr-box"></div>
+        <div class="card-actions">
+          <button class="btn btn-g" onclick="downloadVCard()">⬇️ Save My Contact (.vcf)</button>
+          <button class="btn btn-ghost" onclick="downloadQR()">⬇️ Download QR</button>
+          <button class="btn btn-ghost" onclick="shareCard()">🔗 Share Card Link</button>
+          <button class="btn btn-ghost" onclick="showTab('settings')">✏️ Edit My Details</button>
+        </div>
+      </div>
+      <div class="card" style="margin-top:16px;padding:16px">
+        <div style="font-size:13px;font-weight:800;margin-bottom:6px">💡 How to use at events</div>
+        <div style="font-size:12px;color:var(--muted);line-height:1.6">Print the QR on your badge or show it on your phone. When someone scans it, your contact saves to their phone instantly and they can drop their details — which land right here in your CRM, even if the network is bad.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCAN CARD -->
+  <div class="content" id="tab-scan" style="display:none">
+    <div class="mycard-wrap">
+      <div class="scan-stage" id="scan-stage">
+        <div class="scan-frame"></div>
+        <div class="scan-hint" id="scan-hint">📸<br><br>Tap below to snap or choose a business card</div>
+      </div>
+      <input type="file" accept="image/*" capture="environment" id="scan-input" style="display:none" onchange="onScanFile(event)">
+      <div class="card-actions" style="margin-top:16px">
+        <button class="btn btn-g" onclick="document.getElementById('scan-input').click()">📸 Capture / Choose Card</button>
+        <button class="btn btn-ghost" id="scan-process-btn" onclick="processQueue(true)">🔄 Process Queue</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;margin:16px 2px 10px">
+        <div style="font-size:14px;font-weight:800;flex:1">Scan queue</div>
+        <span id="scan-net" style="font-size:11px;font-weight:700;padding:3px 9px;border-radius:10px"></span>
+      </div>
+      <div id="scan-queue"></div>
+      <div class="card" style="margin-top:6px;padding:14px">
+        <div style="font-size:12px;color:var(--muted);line-height:1.6">📶 <b>No signal? No problem.</b> Snap cards all day — each one is saved on your phone and read automatically once you're back online. Reading uses your Anthropic key from Settings.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- REMINDERS -->
+  <div class="content" id="tab-reminders" style="display:none">
+    <div class="sec-head" style="margin-top:0">
+      <h3>Follow-up Reminders</h3>
+      <a onclick="openRemModal()">＋ New</a>
+    </div>
+    <div class="ffilters">
+      <button class="ff active" data-rf="upcoming" onclick="setRemFilter('upcoming')">Upcoming</button>
+      <button class="ff" data-rf="done" onclick="setRemFilter('done')">Done</button>
+      <button class="ff" data-rf="all" onclick="setRemFilter('all')">All</button>
+    </div>
+    <div id="rem-list"></div>
   </div>
 
   <!-- LEADS -->
@@ -517,13 +782,24 @@ table{min-width:500px}
       <button class="btn btn-g" onclick="saveSettings()">Save</button>
     </div>
     <div class="sset">
-      <div class="sstitle">Your Details</div>
-      <div class="sssub">Used in email sign-offs and call scripts.</div>
+      <div class="sstitle">Your Details & Digital Card</div>
+      <div class="sssub">Powers your email sign-offs, call scripts and your scannable QR card.</div>
+      <div style="display:flex;gap:16px;align-items:center;margin-bottom:16px">
+        <label class="photo-drop" id="s-photo-drop" for="s-photo-input">
+          <span id="s-photo-ph">Add<br>photo</span>
+        </label>
+        <input type="file" accept="image/*" id="s-photo-input" style="display:none" onchange="onPhotoPick(event)">
+        <div style="font-size:12px;color:var(--muted);line-height:1.5">Your photo shows on your digital card.<br><button class="btn btn-ghost btn-sm" type="button" style="margin-top:6px" onclick="clearPhoto()">Remove photo</button></div>
+      </div>
       <div class="g2">
-        <div class="fg"><label class="fl">Name</label><input class="fi" id="s-name" placeholder="e.g. Busayo"></div>
+        <div class="fg"><label class="fl">Name</label><input class="fi" id="s-name" placeholder="e.g. Busayo Amusan"></div>
         <div class="fg"><label class="fl">Title</label><input class="fi" id="s-title" placeholder="e.g. Head of Partnerships"></div>
+        <div class="fg"><label class="fl">Company</label><input class="fi" id="s-company" placeholder="e.g. YALO Technologies"></div>
         <div class="fg"><label class="fl">Email</label><input class="fi" id="s-email" type="email" placeholder="you@yalo.ng"></div>
-        <div class="fg"><label class="fl">WhatsApp / Phone</label><input class="fi" id="s-phone" placeholder="+234..."></div>
+        <div class="fg"><label class="fl">WhatsApp / Phone</label><input class="fi" id="s-phone" placeholder="+2348…"></div>
+        <div class="fg"><label class="fl">Website</label><input class="fi" id="s-website" placeholder="yalo.ng"></div>
+        <div class="fg"><label class="fl">LinkedIn</label><input class="fi" id="s-linkedin" placeholder="linkedin.com/in/…"></div>
+        <div class="fg"><label class="fl">X / Twitter</label><input class="fi" id="s-twitter" placeholder="@handle"></div>
       </div>
       <div class="g2">
         <div class="fg"><label class="fl">Default tone</label>
@@ -646,6 +922,54 @@ table{min-width:500px}
   </div>
 </div>
 
+<!-- NOTIFICATIONS PANEL -->
+<div class="notif-panel" id="notif-panel">
+  <div class="notif-head">
+    <h3>Notifications</h3>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-ghost btn-sm" onclick="markAllNotifsRead()">Mark all read</button>
+      <button class="mx" onclick="toggleNotifs(false)">✕</button>
+    </div>
+  </div>
+  <div style="padding:12px 16px 0"><button class="btn btn-ghost btn-sm" style="width:100%" id="push-enable-btn" onclick="enablePush()">🔔 Turn on device alerts</button></div>
+  <div class="notif-body" id="notif-body"></div>
+</div>
+
+<!-- REMINDER MODAL -->
+<div class="cmo" id="rem-mo">
+  <div class="cm" style="max-width:420px">
+    <div class="cmtitle">New Reminder</div>
+    <div class="cmsub">Get nudged to follow up — on WhatsApp, a call or an email.</div>
+    <div class="fg"><label class="fl">Lead / Contact</label><select class="fsel2" id="rem-lead" onchange="remLeadChanged()"><option value="">General reminder</option></select></div>
+    <div class="fg"><label class="fl">What to do</label><input class="fi" id="rem-note" placeholder="e.g. Send WhatsApp intro, share pricing deck"></div>
+    <div class="fg">
+      <label class="fl">When</label>
+      <div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:10px">
+        <button class="chip-btn chip-snooze" type="button" onclick="remPreset(0.04)">In 1 hour</button>
+        <button class="chip-btn chip-snooze" type="button" onclick="remPreset(1,9)">Tomorrow 9am</button>
+        <button class="chip-btn chip-snooze" type="button" onclick="remPreset(3,9)">In 3 days</button>
+        <button class="chip-btn chip-snooze" type="button" onclick="remPreset(7,9)">Next week</button>
+      </div>
+      <div class="g2">
+        <input class="fi" type="date" id="rem-date">
+        <input class="fi" type="time" id="rem-time">
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:8px">
+      <button class="btn btn-ghost" onclick="closeRemModal()" style="flex:1">Cancel</button>
+      <button class="btn btn-g" onclick="submitReminder()" style="flex:2">Set Reminder</button>
+    </div>
+  </div>
+</div>
+
+<!-- INSTALL BANNER -->
+<div class="install-banner" id="install-banner">
+  <div class="ib-ic">📲</div>
+  <div class="ib-tx"><b>Install YALO CRM</b><br>Add to your home screen for a full app experience.</div>
+  <button class="btn btn-g btn-sm" onclick="doInstall()">Install</button>
+  <button class="mx" style="width:28px;height:28px;color:#fff;border-color:rgba(255,255,255,.3)" onclick="dismissInstall()">✕</button>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -663,6 +987,10 @@ const EDAYS = [0,2,6,13,20,29,44];
 
 // State
 let leads = [], activities = [], settings = {};
+let reminders = [], notifications = [];
+let remFilter = 'upcoming';
+let knownLeadIds = null;   // for new-lead detection
+let firstSettingsLoad = true;
 let curTab = 'dashboard';
 let curLeadId = null;
 let curDTab = 'overview';
@@ -691,47 +1019,84 @@ function bclass(stage){return 'b-'+stage.replace(/\s/g,'')}
 
 // Firebase listeners
 window.addEventListener('firebase-ready',()=>{
-  window.FB.listenLeads(data=>{leads=data;renderAll()});
+  window.FB.listenLeads(data=>{
+    detectNewLeads(data);
+    leads=data;
+    renderAll();
+  });
   window.FB.listenActivities(data=>{activities=data;renderAll()});
   window.FB.listenSettings(data=>{
     settings=data;
     document.getElementById('sync-dot').className='sync-dot on';
     document.getElementById('sync-txt').textContent='Synced';
     loadSettingsUI();
+    updateHeroIdentity();
+    if(firstSettingsLoad){firstSettingsLoad=false;}
+    if(curTab==='mycard')renderMyCard();
   });
+  window.FB.listenReminders(data=>{reminders=data;if(curTab==='reminders')renderReminders();renderHero();});
+  window.FB.listenNotifications(data=>{notifications=data;renderNotifs();updateBadge();});
   setTimeout(seedIfEmpty,2000);
 });
+
+// Notify when a brand-new lead appears (not on first load / not soft-deleted)
+function detectNewLeads(data){
+  const active=data.filter(l=>!l._deleted);
+  if(knownLeadIds===null){ knownLeadIds=new Set(active.map(l=>l.id)); return; }
+  active.forEach(l=>{
+    if(!knownLeadIds.has(l.id)){
+      knownLeadIds.add(l.id);
+      // Scan path posts its own "Card scanned" notification — avoid a duplicate here
+      if(l.source!=='Business Card Scan'){
+        const who=l.contacts?.[0]?.name?`${l.contacts[0].name} · `:'';
+        addNotif({type:'lead',icon:'🏢',title:'New lead added',desc:`${who}${l.company}${l.source?' ('+l.source+')':''}`,leadId:l.id});
+      }
+      // Auto WhatsApp follow-up reminder if there's a phone
+      maybeAutoReminder(l);
+    }
+  });
+  // prune removed
+  const ids=new Set(active.map(l=>l.id));
+  knownLeadIds.forEach(id=>{if(!ids.has(id))knownLeadIds.delete(id);});
+}
 
 function renderAll(){
   if(curTab==='dashboard')renderDash();
   if(curTab==='leads')renderLeads();
   if(curTab==='activity')renderFeed();
+  if(curTab==='reminders')renderReminders();
+  renderHero();
 }
 
 // Nav
+const TABS=['dashboard','leads','scan','mycard','reminders','generator','scripts','warplan','activity','trash','settings'];
 function showTab(t){
-  ['dashboard','leads','generator','scripts','warplan','activity','trash','settings'].forEach(x=>{
-    document.getElementById('tab-'+x).style.display=x===t?'':'none';
+  TABS.forEach(x=>{
+    const el=document.getElementById('tab-'+x);
+    if(el)el.style.display=x===t?'':'none';
   });
-  document.querySelectorAll('.ni').forEach((el,i)=>{
-    el.classList.toggle('active',['dashboard','leads','generator','scripts','warplan','activity','trash','settings'][i]===t);
+  document.querySelectorAll('.ni').forEach(el=>{
+    el.classList.toggle('active',el.dataset.tab===t);
   });
-  const titles={dashboard:'Dashboard',leads:'Leads',generator:'Company Research',scripts:'Script Library',warplan:'War Plan',activity:'Activity Feed',trash:'Recently Deleted',settings:'Settings'};
+  const titles={dashboard:'Dashboard',leads:'Leads',scan:'Scan a Card',mycard:'My Digital Card',reminders:'Reminders',generator:'Company Research',scripts:'Script Library',warplan:'War Plan',activity:'Activity Feed',trash:'Recently Deleted',settings:'Settings'};
   document.getElementById('page-title').textContent=titles[t]||t;
   curTab=t;
-  // Sync bottom nav
-  const bnMap={dashboard:'bn-dashboard',leads:'bn-leads',generator:'bn-generator',scripts:'bn-scripts',warplan:'bn-warplan',activity:'bn-activity',settings:'bn-settings'};
   document.querySelectorAll('.bn-item').forEach(b=>b.classList.remove('active'));
-  if(bnMap[t])document.getElementById(bnMap[t])?.classList.add('active');
+  document.getElementById('bn-'+t)?.classList.add('active');
+  window.scrollTo({top:0,behavior:'smooth'});
   if(t==='dashboard')renderDash();
   if(t==='leads')renderLeads();
   if(t==='activity')renderFeed();
   if(t==='trash')renderTrash();
   if(t==='scripts')renderScripts();
+  if(t==='mycard')renderMyCard();
+  if(t==='scan'){renderQueue();updateNetBadge();}
+  if(t==='reminders')renderReminders();
 }
 
 // Dashboard
 function renderDash(){
+  updateHeroIdentity();renderHero();
   const now=new Date(),wa=new Date(now-7*86400000);
   const activeLeads=leads.filter(l=>!l._deleted);
   const emailsWk=activities.filter(a=>a.type==='email'&&new Date(a.ts)>wa).length;
@@ -789,7 +1154,7 @@ function renderDash(){
   }
   if(actChart)actChart.destroy();
   actChart=new Chart(document.getElementById('actChart').getContext('2d'),{
-    type:'bar',data:{labels,datasets:[{data,backgroundColor:'rgba(124,187,66,0.7)',borderRadius:4,borderSkipped:false}]},
+    type:'bar',data:{labels,datasets:[{data,backgroundColor:'rgba(79,91,213,0.7)',borderRadius:4,borderSkipped:false}]},
     options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{font:{size:9}}},y:{grid:{color:'rgba(0,0,0,.05)'},ticks:{font:{size:9},stepSize:1}}}}
   });
 
@@ -797,7 +1162,7 @@ function renderDash(){
   const srcs={};activeLeads.forEach(l=>srcs[l.source||'Other']=(srcs[l.source||'Other']||0)+1);
   if(srcChart)srcChart.destroy();
   srcChart=new Chart(document.getElementById('srcChart').getContext('2d'),{
-    type:'doughnut',data:{labels:Object.keys(srcs),datasets:[{data:Object.values(srcs),backgroundColor:['#7cbb42','#3498db','#f39c12','#9b59b6','#e74c3c'],borderWidth:0}]},
+    type:'doughnut',data:{labels:Object.keys(srcs),datasets:[{data:Object.values(srcs),backgroundColor:['#4f5bd5','#3498db','#f39c12','#9b59b6','#e74c3c'],borderWidth:0}]},
     options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{size:10},boxWidth:10}}}}
   });
 
@@ -1214,26 +1579,59 @@ async function submitQL(){
 }
 
 // Settings
+let pendingPhoto=undefined; // undefined=unchanged, ''=cleared, dataURL=new
 function loadSettingsUI(){
   const s=settings;
-  if(s.apiKey)document.getElementById('s-key').value=s.apiKey;
-  if(s.name)document.getElementById('s-name').value=s.name;
-  if(s.title)document.getElementById('s-title').value=s.title;
-  if(s.email)document.getElementById('s-email').value=s.email;
-  if(s.phone)document.getElementById('s-phone').value=s.phone;
+  const set=(id,v)=>{const e=document.getElementById(id);if(e&&v!=null)e.value=v;};
+  set('s-key',s.apiKey);set('s-name',s.name);set('s-title',s.title);set('s-company',s.company);
+  set('s-email',s.email);set('s-phone',s.phone);set('s-website',s.website);
+  set('s-linkedin',s.linkedin);set('s-twitter',s.twitter);
   if(s.tone)document.getElementById('s-tone').value=s.tone;
   if(s.market)document.getElementById('s-mkt').value=s.market;
+  renderPhotoDrop(s.photo);
+}
+function renderPhotoDrop(photo){
+  const drop=document.getElementById('s-photo-drop');if(!drop)return;
+  if(photo){drop.innerHTML=`<img src="${photo}" alt="">`;}
+  else{drop.innerHTML='<span id="s-photo-ph">Add<br>photo</span>';}
+}
+function onPhotoPick(e){
+  const f=e.target.files[0];if(!f)return;
+  const rd=new FileReader();
+  rd.onload=()=>{ resizeImage(rd.result,320,dataUrl=>{ pendingPhoto=dataUrl; renderPhotoDrop(dataUrl); }); };
+  rd.readAsDataURL(f);
+}
+function clearPhoto(){ pendingPhoto=''; renderPhotoDrop(''); }
+// Downscale an image dataURL to max dimension, return JPEG dataURL
+function resizeImage(dataUrl,max,cb){
+  const img=new Image();
+  img.onload=()=>{
+    let{width:w,height:h}=img;
+    if(w>h&&w>max){h=h*max/w;w=max;}else if(h>max){w=w*max/h;h=max;}
+    const c=document.createElement('canvas');c.width=w;c.height=h;
+    c.getContext('2d').drawImage(img,0,0,w,h);
+    cb(c.toDataURL('image/jpeg',0.82));
+  };
+  img.src=dataUrl;
 }
 async function saveSettings(){
+  const g=id=>document.getElementById(id);
   const s={
-    apiKey:document.getElementById('s-key').value.trim(),
-    name:document.getElementById('s-name').value.trim(),
-    title:document.getElementById('s-title').value.trim(),
-    email:document.getElementById('s-email').value.trim(),
-    phone:document.getElementById('s-phone').value.trim(),
-    tone:document.getElementById('s-tone').value,
-    market:document.getElementById('s-mkt').value
+    ...settings,
+    apiKey:g('s-key').value.trim(),
+    name:g('s-name').value.trim(),
+    title:g('s-title').value.trim(),
+    company:g('s-company')?.value.trim()||'',
+    email:g('s-email').value.trim(),
+    phone:g('s-phone').value.trim(),
+    website:g('s-website')?.value.trim()||'',
+    linkedin:g('s-linkedin')?.value.trim()||'',
+    twitter:g('s-twitter')?.value.trim()||'',
+    tone:g('s-tone').value,
+    market:g('s-mkt').value
   };
+  if(pendingPhoto!==undefined)s.photo=pendingPhoto||'';
+  pendingPhoto=undefined;
   await window.FB.saveSettings(s);toast('Settings saved');
 }
 
@@ -1482,7 +1880,7 @@ function renderLB(){
   const medals=['🥇','🥈','🥉'];
   document.getElementById('leaderboard').innerHTML=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px">
     ${sorted.map(([owner,s],i)=>`
-      <div style="background:${i===0?'linear-gradient(135deg,var(--dark),#2d4a1e)':'var(--gll)'};border-radius:10px;padding:14px;border:1px solid ${i===0?'var(--g)':'var(--border)'}">
+      <div style="background:${i===0?'linear-gradient(135deg,var(--dark),#3a45c4)':'var(--gll)'};border-radius:10px;padding:14px;border:1px solid ${i===0?'var(--g)':'var(--border)'}">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
           <div style="font-size:14px;font-weight:800;color:${i===0?'#fff':'var(--text)'}">${medals[i]?medals[i]+' ':''}${owner}</div>
           <div style="font-size:11px;font-weight:600;color:${i===0?'rgba(255,255,255,.6)':'var(--muted)'};">${s.leads} lead${s.leads!==1?'s':''}</div>
@@ -1599,7 +1997,9 @@ async function callClaude(system,user,search,key,maxTokens=1000){
 // Seed
 async function seedIfEmpty(){
   // Query Firebase directly — includes soft-deleted leads
-  const count = await window.FB.countAllLeads();
+  let count = 1;
+  try { count = await window.FB.countAllLeads(); }
+  catch(e){ console.warn('seed check skipped:', e.code||e.message); return; }
   if(count > 0) return;
   const samples=[
     {id:'seed-mactay-001',company:'MacTay Consulting',sector:'HR & Consulting',hq:'Lagos, Nigeria',size:'200-500 employees',website:'mactay.com',value:8000000,fit:'MacTay manages 17,000 outsourced employees — staff housing financing fits directly into their employee welfare offering.',source:'AI Research',owner:'Amusan',stage:'Contacted',contactedAt:new Date(Date.now()-5*86400000).toISOString(),notes:'Reached out via LinkedIn. Positive signals.',contacts:[{name:'Tayo Rotimi',title:'CEO',email:'tayo@mactay.com',phone:'+2348012345678',linkedin:'linkedin.com/in/tayorotimi'}],emails:ELABELS.map((x,i)=>({status:i===0?'sent':'draft',subject:i===0?"MacTay's 17,000 staff — one thing we noticed":'',body:i===0?'Dear Tayo,\n\nMacTay just launched Contact Centre Solutions — significant headcount expansion at a time when most firms are pulling back. Impressive.\n\nAt MacTay\'s scale, housing support is not a perk — it is a retention lever. YALO pays the rent upfront. Your staff repay monthly. Your working capital stays working.\n\nWorth 15 minutes?\n\nBusayo\nYALO Technologies\n\nP.S. One employer in Lagos freed up N43M in working capital last quarter just by restructuring annual staff housing costs. Happy to share how.':''}))}
@@ -1609,14 +2009,395 @@ async function seedIfEmpty(){
     await addAct({leadId:l.id,type:'email',company:l.company,desc:'Email 1 (The Research Hook) sent'});
   }
 }
+
+/* ========================================================================
+   DASHBOARD HERO
+   ===================================================================== */
+function updateHeroIdentity(){
+  const name=settings.name||'YALO Sales';
+  const nameEl=document.getElementById('hero-greet-name');if(nameEl)nameEl.textContent=name;
+  const h=new Date().getHours();
+  const t=document.getElementById('hero-greet-time');if(t)t.textContent=(h<12?'Good morning,':h<17?'Good afternoon,':'Good evening,');
+  const av=document.getElementById('hero-av');
+  if(av){ av.innerHTML = settings.photo?`<img src="${settings.photo}" alt="">`:inits(name); }
+}
+function renderHero(){
+  const active=leads.filter(l=>!l._deleted);
+  const pval=active.reduce((s,l)=>s+(l.value||0),0);
+  const pv=document.getElementById('hero-pipeline');if(pv)pv.textContent=pval?fmt(pval):'N0';
+  const sub=document.getElementById('hero-sub');
+  if(sub){
+    const open=active.filter(l=>!['Closed','Lost'].includes(l.stage)).length;
+    const dueRem=reminders.filter(r=>!r.done&&new Date(r.when)<=new Date()).length;
+    sub.textContent=`${active.length} lead${active.length!==1?'s':''} · ${open} active`+(dueRem?` · ${dueRem} follow-up${dueRem>1?'s':''} due`:'');
+  }
+}
+
+/* ========================================================================
+   MY DIGITAL CARD
+   ===================================================================== */
+function cardUrl(){ return location.origin + location.pathname.replace(/[^/]*$/,'') + 'card.html'; }
+function myInfo(){
+  return {
+    name:settings.name||'Your Name', title:settings.title||'', company:settings.company||'YALO Technologies',
+    email:settings.email||'', phone:settings.phone||'', website:settings.website||'',
+    linkedin:settings.linkedin||'', twitter:settings.twitter||'', photo:settings.photo||''
+  };
+}
+function normUrl(u){ return u?(u.startsWith('http')?u:'https://'+u):''; }
+function buildVCard(){
+  const m=myInfo();
+  const parts=m.name.trim().split(/\s+/);
+  const last=parts.length>1?parts.pop():'';
+  const first=parts.join(' ');
+  const tw=m.twitter?m.twitter.replace(/^@/,''):'';
+  return ['BEGIN:VCARD','VERSION:3.0',
+    `FN:${m.name}`,`N:${last};${first};;;`,
+    m.company?`ORG:${m.company}`:'', m.title?`TITLE:${m.title}`:'',
+    m.email?`EMAIL;TYPE=WORK:${m.email}`:'', m.phone?`TEL;TYPE=CELL:${m.phone}`:'',
+    m.website?`URL:${normUrl(m.website)}`:'',
+    m.linkedin?`X-SOCIALPROFILE;TYPE=linkedin:${normUrl(m.linkedin)}`:'',
+    tw?`X-SOCIALPROFILE;TYPE=twitter:https://x.com/${tw}`:'',
+    'END:VCARD'].filter(Boolean).join('\r\n');
+}
+function downloadVCard(){
+  const blob=new Blob([buildVCard()],{type:'text/vcard'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download=(myInfo().name||'contact').replace(/\s+/g,'_')+'.vcf';
+  document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+  toast('Your contact file downloaded');
+}
+let _qr=null;
+function renderMyCard(){
+  const m=myInfo();
+  const photoHtml=m.photo?`<img class="vcard-photo" src="${m.photo}" alt="">`:`<div class="vcard-photo">${inits(m.name)}</div>`;
+  const tw=m.twitter?m.twitter.replace(/^@/,''):'';
+  const chip=(href,icon,label,ext)=>href?`<a class="vcard-chip" href="${href}" ${ext?'target="_blank" rel="noopener"':''}>${icon} ${label}</a>`:'';
+  const pv=document.getElementById('vcard-preview');
+  if(pv)pv.innerHTML=`
+    <div class="vcard-brand">ya-lo</div>
+    ${photoHtml}
+    <div class="vcard-name">${m.name}</div>
+    ${m.title?`<div class="vcard-title">${m.title}</div>`:''}
+    ${m.company?`<div class="vcard-co">${m.company}</div>`:''}
+    <div class="vcard-chips">
+      ${chip(m.phone?`tel:${m.phone}`:'','📞','Call')}
+      ${chip(m.phone?`https://wa.me/${m.phone.replace(/\D/g,'')}`:'','💬','WhatsApp',1)}
+      ${chip(m.email?`mailto:${m.email}`:'','✉️','Email')}
+      ${chip(normUrl(m.linkedin),'in','LinkedIn',1)}
+      ${chip(tw?`https://x.com/${tw}`:'','𝕏','X',1)}
+      ${chip(normUrl(m.website),'🌐','Website',1)}
+    </div>`;
+  const box=document.getElementById('qr-box');
+  if(box){ box.innerHTML=''; if(window.QRCode){ _qr=new QRCode(box,{text:cardUrl(),width:190,height:190,colorDark:'#1a1d2e',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.M}); } }
+}
+function downloadQR(){
+  const img=document.querySelector('#qr-box img')||document.querySelector('#qr-box canvas');
+  if(!img){toast('QR not ready yet','var(--red)');return;}
+  const a=document.createElement('a');a.download='yalo-card-qr.png';
+  a.href=img.tagName==='CANVAS'?img.toDataURL('image/png'):img.src;a.click();
+  toast('QR downloaded');
+}
+async function shareCard(){
+  const url=cardUrl();
+  if(navigator.share){try{await navigator.share({title:`${myInfo().name} — ${myInfo().company}`,text:'Save my contact & connect:',url});}catch(e){}}
+  else{try{await navigator.clipboard.writeText(url);toast('Card link copied');}catch(e){toast(url);}}
+}
+
+/* ========================================================================
+   BUSINESS-CARD SCANNER (offline queue + Claude vision OCR)
+   ===================================================================== */
+const SDB='yalo-scans';
+function sdb(){return new Promise((res,rej)=>{const r=indexedDB.open(SDB,1);r.onupgradeneeded=()=>r.result.createObjectStore('q',{keyPath:'id'});r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);});}
+async function sPut(it){const db=await sdb();return new Promise((res,rej)=>{const t=db.transaction('q','readwrite');t.objectStore('q').put(it);t.oncomplete=res;t.onerror=()=>rej(t.error);});}
+async function sAll(){const db=await sdb();return new Promise((res,rej)=>{const t=db.transaction('q','readonly');const rq=t.objectStore('q').getAll();rq.onsuccess=()=>res((rq.result||[]).sort((a,b)=>new Date(b.ts)-new Date(a.ts)));rq.onerror=()=>rej(rq.error);});}
+async function sDel(id){const db=await sdb();return new Promise(res=>{const t=db.transaction('q','readwrite');t.objectStore('q').delete(id);t.oncomplete=res;});}
+
+function onScanFile(e){
+  const f=e.target.files[0];if(!f)return;
+  const rd=new FileReader();
+  rd.onload=()=>resizeImage(rd.result,1280,async img=>{
+    const item={id:uid(),img,status:'pending',ts:new Date().toISOString()};
+    await sPut(item);
+    const hint=document.getElementById('scan-hint');if(hint)hint.style.display='none';
+    const stage=document.getElementById('scan-stage');
+    stage.querySelector('img')?.remove();
+    const prev=document.createElement('img');prev.src=img;stage.appendChild(prev);
+    toast('Card captured 📸');
+    renderQueue();
+    processQueue(false);
+  });
+  rd.readAsDataURL(f);
+  e.target.value='';
+}
+async function renderQueue(){
+  const list=document.getElementById('scan-queue');if(!list)return;
+  const items=await sAll();
+  if(!items.length){list.innerHTML='<div style="text-align:center;color:var(--muted);font-size:13px;padding:24px">No cards scanned yet.</div>';return;}
+  const stat={pending:['qs-pending','Queued'],proc:['qs-proc','Reading'],done:['qs-done','Added ✓'],err:['qs-err','Failed']};
+  list.innerHTML=items.map(it=>{
+    const s=stat[it.status]||stat.pending;
+    return `<div class="queue-item">
+      <img class="queue-thumb" src="${it.img}">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:700">${it.name||'Business card'}</div>
+        <div style="font-size:11px;color:var(--muted)">${it.company||new Date(it.ts).toLocaleString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</div>
+        ${it.error?`<div style="font-size:11px;color:var(--red)">${it.error}</div>`:''}
+      </div>
+      <span class="queue-stat ${s[0]}">${it.status==='proc'?'<span class="spin"></span> ':''}${s[1]}</span>
+      ${it.leadId?`<button class="mx" style="width:28px;height:28px" title="Open lead" onclick="gotoRemLead('${it.leadId}')">↗</button>`:''}
+      <button class="mx" style="width:28px;height:28px" onclick="removeScan('${it.id}')">✕</button>
+    </div>`;
+  }).join('');
+}
+async function removeScan(id){await sDel(id);renderQueue();}
+
+let processing=false;
+async function processQueue(manual){
+  if(processing)return;
+  const items=(await sAll()).filter(i=>i.status==='pending'||i.status==='err');
+  if(!items.length){if(manual)toast('Queue is empty');return;}
+  if(!navigator.onLine){if(manual)toast('Offline — cards will read when back online','var(--amber)');return;}
+  const key=settings.apiKey;
+  if(!key){if(manual){toast('Add your Anthropic key in Settings','var(--red)');showTab('settings');}return;}
+  processing=true;
+  for(const it of items){
+    it.status='proc';it.error='';await sPut(it);renderQueue();
+    try{
+      const data=await ocrCard(it.img,key);
+      const lead=await leadFromScan(data);
+      it.status='done';it.name=data.name||'';it.company=data.company||'';it.leadId=lead.id;await sPut(it);
+      addNotif({type:'scan',icon:'📸',title:'Card scanned into CRM',desc:`${data.name||'New contact'}${data.company?' · '+data.company:''}`,leadId:lead.id});
+    }catch(err){
+      it.status='err';it.error=(err.message||'Read failed').slice(0,90);await sPut(it);
+    }
+    renderQueue();
+  }
+  processing=false;
+}
+async function ocrCard(dataUrl,key){
+  const m=dataUrl.match(/^data:(image\/\w+);base64,(.+)$/);
+  if(!m)throw new Error('Bad image');
+  const sys='You read business cards. Return ONLY valid minified JSON (no markdown, no prose) with exactly these keys: name, title, company, email, phone, website, linkedin, twitter, address. Use an empty string for anything not on the card. Put the phone in international format when a country is clear.';
+  const body={model:'claude-sonnet-4-20250514',max_tokens:500,system:sys,messages:[{role:'user',content:[
+    {type:'image',source:{type:'base64',media_type:m[1],data:m[2]}},
+    {type:'text',text:'Extract the contact details from this business card as JSON.'}
+  ]}]};
+  const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',
+    headers:{'Content-Type':'application/json','anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true','x-api-key':key},
+    body:JSON.stringify(body)});
+  if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.error?.message||'API '+r.status);}
+  const j=await r.json();
+  const txt=(j.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('');
+  const jm=txt.match(/\{[\s\S]*\}/);if(!jm)throw new Error('No details found on card');
+  return JSON.parse(jm[0]);
+}
+async function leadFromScan(d){
+  const name=(d.name||'').trim();
+  const lead={
+    id:uid(), company:(d.company||name||'Scanned contact').trim(), sector:'', hq:d.address||'', size:'',
+    website:d.website||'', value:0, blocker:'', disbursed:0, fit:'',
+    source:'Business Card Scan', owner:settings.name?settings.name.split(' ')[0]:'Unassigned',
+    stage:'New', createdAt:new Date().toISOString(), notes:d.address?('Address: '+d.address):'', contactedAt:null,
+    contacts:[{name:name||'Unknown',title:d.title||'',email:d.email||'',phone:d.phone||'',linkedin:d.linkedin||'',twitter:d.twitter||''}],
+    emails:ELABELS.map(()=>({status:'draft',subject:'',body:''}))
+  };
+  await window.FB.saveLead(lead);
+  await addAct({leadId:lead.id,type:'lead',company:lead.company,desc:'Added via business card scan'});
+  return lead;
+}
+function updateNetBadge(){
+  const b=document.getElementById('scan-net');if(!b)return;
+  const on=navigator.onLine;
+  b.textContent=on?'● Online':'● Offline — queued';
+  b.style.background=on?'#d1fae5':'#fef3cd';b.style.color=on?'#065f46':'#b7791f';
+}
+
+/* ========================================================================
+   NOTIFICATIONS
+   ===================================================================== */
+function addNotif(n){
+  const notif={id:uid(),ts:new Date().toISOString(),read:false,...n};
+  window.FB.saveNotification(notif);
+  pushNotify(n.title,n.desc);
+  const bell=document.getElementById('bell-btn');if(bell){bell.classList.remove('rung');void bell.offsetWidth;bell.classList.add('rung');}
+}
+function renderNotifs(){
+  const body=document.getElementById('notif-body');if(!body)return;
+  if(!notifications.length){body.innerHTML='<div class="notif-empty">No notifications yet.<br>New leads, scans and reminders show up here.</div>';return;}
+  body.innerHTML=notifications.slice(0,60).map(n=>`
+    <div class="notif-item ${n.read?'':'unread'}" onclick="openNotif('${n.id}')">
+      <div class="notif-ic ${n.type==='reminder'?'rem':n.type==='scan'?'scan':''}">${n.icon||'🔔'}</div>
+      <div class="notif-tx"><div class="t">${n.title}</div><div class="d">${n.desc||''}</div><div class="w">${ago(n.ts)}</div></div>
+    </div>`).join('');
+}
+function updateBadge(){
+  const c=notifications.filter(x=>!x.read).length;
+  const b=document.getElementById('bell-badge');if(!b)return;
+  b.textContent=c>9?'9+':c;b.classList.toggle('show',c>0);
+}
+function toggleNotifs(force){
+  const p=document.getElementById('notif-panel');
+  const open=force===undefined?!p.classList.contains('open'):force;
+  p.classList.toggle('open',open);
+  if(open){renderNotifs();updatePushBtn();}
+}
+async function openNotif(id){
+  const n=notifications.find(x=>x.id===id);if(!n)return;
+  if(!n.read){n.read=true;await window.FB.saveNotification(n);}
+  toggleNotifs(false);
+  if(n.leadId){showTab('leads');setTimeout(()=>openLead(n.leadId),180);}
+  else if(n.type==='reminder')showTab('reminders');
+}
+async function markAllNotifsRead(){
+  const un=notifications.filter(x=>!x.read);
+  for(const n of un){n.read=true;await window.FB.saveNotification(n);}
+  if(un.length)toast('All marked read');
+}
+function pushNotify(title,body){
+  if(!('Notification'in window)||Notification.permission!=='granted')return;
+  try{
+    if(navigator.serviceWorker&&navigator.serviceWorker.ready){
+      navigator.serviceWorker.ready.then(reg=>reg.showNotification(title,{body:body||'',icon:'icon-192.png',badge:'icon-192.png',vibrate:[80,40,80]})).catch(()=>{new Notification(title,{body});});
+    } else { new Notification(title,{body}); }
+  }catch(e){}
+}
+function enablePush(){
+  if(!('Notification'in window)){toast('Notifications not supported here','var(--red)');return;}
+  Notification.requestPermission().then(p=>{
+    if(p==='granted'){toast('Device alerts on 🔔');pushNotify('YALO CRM','Alerts are on — new leads & follow-ups will nudge you.');}
+    else toast('Notifications blocked','var(--amber)');
+    updatePushBtn();
+  });
+}
+function updatePushBtn(){
+  const b=document.getElementById('push-enable-btn');if(!b)return;
+  if(!('Notification'in window)){b.style.display='none';return;}
+  if(Notification.permission==='granted'){b.style.display='none';}
+  else{b.style.display='';b.textContent=Notification.permission==='denied'?'🔕 Alerts blocked in browser settings':'🔔 Turn on device alerts';}
+}
+
+/* ========================================================================
+   REMINDERS  (+ WhatsApp follow-ups)
+   ===================================================================== */
+function openRemModal(leadId){
+  const sel=document.getElementById('rem-lead');
+  sel.innerHTML='<option value="">General reminder</option>'+leads.filter(l=>!l._deleted).map(l=>`<option value="${l.id}">${l.company}${l.contacts&&l.contacts[0]?' — '+l.contacts[0].name:''}</option>`).join('');
+  if(leadId)sel.value=leadId;
+  document.getElementById('rem-note').value='';
+  remPreset(1,9);
+  remLeadChanged();
+  document.getElementById('rem-mo').classList.add('open');
+}
+function closeRemModal(){document.getElementById('rem-mo').classList.remove('open');}
+function remPreset(days,hour){
+  const d=new Date();
+  if(days<1){d.setTime(d.getTime()+days*86400000);}
+  else{d.setDate(d.getDate()+Math.floor(days));if(hour!=null)d.setHours(hour,0,0,0);}
+  const pad=n=>String(n).padStart(2,'0');
+  document.getElementById('rem-date').value=`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  document.getElementById('rem-time').value=`${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+function remLeadChanged(){
+  const l=leads.find(x=>x.id===document.getElementById('rem-lead').value);
+  const note=document.getElementById('rem-note');
+  if(l&&!note.value){ const c=l.contacts&&l.contacts[0]; note.value=c&&c.phone?`WhatsApp ${c.name||l.company}`:`Follow up with ${l.company}`; }
+}
+async function submitReminder(){
+  const leadId=document.getElementById('rem-lead').value;
+  const note=document.getElementById('rem-note').value.trim();
+  const date=document.getElementById('rem-date').value, time=document.getElementById('rem-time').value;
+  if(!date||!time){toast('Pick a date & time','var(--red)');return;}
+  const when=new Date(date+'T'+time);
+  if(isNaN(when)){toast('Invalid date','var(--red)');return;}
+  const l=leads.find(x=>x.id===leadId), c=l&&l.contacts&&l.contacts[0];
+  const rem={id:uid(),leadId:leadId||null,company:l?l.company:'General',contactName:c?c.name:'',phone:c?c.phone:'',
+    note:note||'Follow up',when:when.toISOString(),done:false,fired:when>new Date()?false:true,createdAt:new Date().toISOString()};
+  await window.FB.saveReminder(rem);
+  closeRemModal();toast('Reminder set ⏰');showTab('reminders');
+}
+function setRemFilter(f){remFilter=f;document.querySelectorAll('[data-rf]').forEach(b=>b.classList.toggle('active',b.dataset.rf===f));renderReminders();}
+function renderReminders(){
+  const list=document.getElementById('rem-list');if(!list)return;
+  const now=new Date();
+  let rs=[...reminders];
+  if(remFilter==='upcoming')rs=rs.filter(r=>!r.done);
+  else if(remFilter==='done')rs=rs.filter(r=>r.done);
+  rs.sort((a,b)=>new Date(a.when)-new Date(b.when));
+  if(!rs.length){list.innerHTML=`<div class="card" style="text-align:center;padding:40px;color:var(--muted)">No ${remFilter==='done'?'completed':'upcoming'} reminders.<br><button class="btn btn-g btn-sm" style="margin-top:12px" onclick="openRemModal()">＋ New reminder</button></div>`;return;}
+  const pad=n=>String(n).padStart(2,'0');
+  list.innerHTML=rs.map(r=>{
+    const w=new Date(r.when), overdue=!r.done&&w<now, due=!r.done&&!overdue&&(w-now)<86400000;
+    const wa=r.phone?`https://wa.me/${r.phone.replace(/\D/g,'')}`:'';
+    return `<div class="rem-card ${r.done?'':overdue?'overdue':due?'due':''}">
+      <div class="rem-when-box"><div class="d">${w.getDate()}</div><div class="m">${w.toLocaleString('en',{month:'short'})}</div><div class="ti">${pad(w.getHours())}:${pad(w.getMinutes())}</div></div>
+      <div class="rem-main">
+        <div class="rem-co">${r.company}</div>
+        <div class="rem-note">${r.note}</div>
+        ${overdue?'<span class="rem-tag" style="background:#fee2e2;color:#991b1b">⚠ Overdue</span>':due?'<span class="rem-tag" style="background:#fef3cd;color:#b7791f">Due soon</span>':r.done?'<span class="rem-tag" style="background:#d1fae5;color:#065f46">✓ Done</span>':r.auto?'<span class="rem-tag">Auto</span>':''}
+        <div class="rem-acts">
+          ${wa&&!r.done?`<a class="chip-btn chip-wa" href="${wa}" target="_blank" rel="noopener" onclick="markReminderDone('${r.id}')">💬 WhatsApp</a>`:''}
+          ${r.leadId?`<button class="chip-btn chip-done" onclick="gotoRemLead('${r.leadId}')">Open lead</button>`:''}
+          ${!r.done?`<button class="chip-btn chip-done" onclick="markReminderDone('${r.id}')">✓ Done</button>`:''}
+          ${!r.done?`<button class="chip-btn chip-snooze" onclick="snoozeReminder('${r.id}')">💤 +1 day</button>`:''}
+          <button class="chip-btn chip-snooze" onclick="deleteReminder('${r.id}')">🗑</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+function gotoRemLead(id){showTab('leads');setTimeout(()=>openLead(id),180);}
+async function markReminderDone(id){const r=reminders.find(x=>x.id===id);if(!r)return;r.done=true;await window.FB.saveReminder(r);toast('Marked done ✓');}
+async function snoozeReminder(id){const r=reminders.find(x=>x.id===id);if(!r)return;r.when=new Date(new Date(r.when).getTime()+86400000).toISOString();r.fired=false;await window.FB.saveReminder(r);toast('Snoozed 1 day');}
+async function deleteReminder(id){await window.FB.deleteReminder(id);toast('Reminder deleted');}
+function maybeAutoReminder(l){
+  const c=l.contacts&&l.contacts[0];
+  if(!c||!c.phone)return;
+  if(reminders.some(r=>r.leadId===l.id))return;
+  const when=new Date(Date.now()+2*3600000);
+  window.FB.saveReminder({id:uid(),leadId:l.id,company:l.company,contactName:c.name||'',phone:c.phone,
+    note:`Send WhatsApp intro to ${c.name||l.company}`,when:when.toISOString(),done:false,fired:false,auto:true,createdAt:new Date().toISOString()});
+}
+function checkDueReminders(){
+  const now=new Date();
+  reminders.filter(r=>!r.done&&!r.fired&&new Date(r.when)<=now).forEach(r=>{
+    r.fired=true;window.FB.saveReminder(r);
+    addNotif({type:'reminder',icon:'⏰',title:'Follow-up reminder',desc:`${r.company}: ${r.note}`,leadId:r.leadId});
+  });
+  renderHero();
+}
+
+/* ========================================================================
+   PWA INSTALL
+   ===================================================================== */
+let deferredPrompt=null;
+window.addEventListener('beforeinstallprompt',e=>{
+  e.preventDefault();deferredPrompt=e;
+  if(!localStorage.getItem('yalo_install_dismissed'))document.getElementById('install-banner').classList.add('show');
+});
+function doInstall(){
+  if(deferredPrompt){deferredPrompt.prompt();deferredPrompt.userChoice.finally(()=>{deferredPrompt=null;dismissInstall();});}
+  else{toast('Open your browser menu → Add to Home Screen');dismissInstall();}
+}
+function dismissInstall(){document.getElementById('install-banner').classList.remove('show');localStorage.setItem('yalo_install_dismissed','1');}
+window.addEventListener('appinstalled',()=>{dismissInstall();toast('Installed 🎉');});
+
+/* ========================================================================
+   NETWORK + BOOT
+   ===================================================================== */
+window.addEventListener('online',()=>{updateNetBadge();processQueue(false);});
+window.addEventListener('offline',updateNetBadge);
+updatePushBtn();updateBadge();updateNetBadge();
+setTimeout(checkDueReminders,5000);
+setInterval(checkDueReminders,60000);
 </script>
 
 <div class="bottom-nav" id="bottom-nav">
   <button class="bn-item active" id="bn-dashboard" onclick="showTab('dashboard')"><span>📊</span>Home</button>
   <button class="bn-item" id="bn-leads" onclick="showTab('leads')"><span>🏢</span>Leads</button>
-  <button class="bn-item" id="bn-scripts" onclick="showTab('scripts')"><span>📝</span>Scripts</button>
-  <button class="bn-item" id="bn-warplan" onclick="showTab('warplan')"><span>⚔️</span>War Plan</button>
-  <button class="bn-item" id="bn-activity" onclick="showTab('activity')"><span>⚡</span>Activity</button>
+  <button class="bn-item" id="bn-scan" onclick="showTab('scan')"><span>📸</span>Scan</button>
+  <button class="bn-item" id="bn-mycard" onclick="showTab('mycard')"><span>🪪</span>My Card</button>
+  <button class="bn-item" id="bn-reminders" onclick="showTab('reminders')"><span>⏰</span>Remind</button>
   <button class="bn-item" id="bn-settings" onclick="showTab('settings')"><span>⚙️</span>More</button>
 </div>
 <script>
