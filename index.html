@@ -513,6 +513,10 @@ body{-webkit-font-smoothing:antialiased}
 .install-banner .ib-tx{flex:1;font-size:12px;line-height:1.35}
 .install-banner .ib-tx b{font-size:13px}
 
+.qr-lightbox{position:fixed;inset:0;z-index:600;background:rgba(10,12,30,.82);display:none;align-items:center;justify-content:center;padding:24px}
+.qr-lightbox.open{display:flex;animation:fadeUp .2s ease}
+.qr-lightbox-inner{background:#fff;border-radius:20px;padding:20px;max-width:340px;width:100%}
+.qr-lightbox-inner img{width:100%;border-radius:12px;display:block}
 .photo-drop{width:92px;height:92px;border-radius:50%;border:2px dashed var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;overflow:hidden;background:var(--gll);font-size:12px;color:var(--muted);text-align:center;flex-shrink:0}
 .photo-drop img{width:100%;height:100%;object-fit:cover}
 
@@ -1022,6 +1026,15 @@ body.authed .login-screen{display:none}
   <button class="mx" style="width:28px;height:28px;color:#fff;border-color:rgba(255,255,255,.3)" onclick="dismissInstall()">✕</button>
 </div>
 
+<!-- QR LIGHTBOX (fallback save) -->
+<div class="qr-lightbox" id="qr-lightbox" onclick="this.classList.remove('open')">
+  <div class="qr-lightbox-inner" onclick="event.stopPropagation()">
+    <div style="font-size:13px;font-weight:700;margin-bottom:10px;text-align:center">Press & hold the code to save it 👇</div>
+    <img id="qr-lightbox-img" alt="Your QR code">
+    <button class="btn btn-g" style="width:100%;margin-top:14px" onclick="document.getElementById('qr-lightbox').classList.remove('open')">Done</button>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -1110,9 +1123,16 @@ function onAuthUser(user){
   if(!appStarted){appStarted=true;startApp();}
 }
 window.addEventListener('firebase-ready',()=>{
+  // Firebase restores your last sign-in from this device (works with no network),
+  // so a returning signed-in user is let straight in, online or offline.
   window.FB.onAuth(onAuthUser);
-  // If Firebase can't be reached on a cold, uncached launch, don't hang on the splash
-  setTimeout(()=>{ if(!authResolved)showLogin('You look offline. Connect once to sign in — after that the app works offline.'); },8000);
+  // Only shows if nothing resolved — i.e. you've never signed in on this device.
+  setTimeout(()=>{
+    if(authResolved)return;
+    showLogin(navigator.onLine
+      ? 'Sign in with your authorised Google account to continue.'
+      : "You're offline and not signed in on this device yet. Connect to the internet once to sign in — after that the app opens offline.");
+  },6000);
 });
 
 function startApp(){
@@ -2200,12 +2220,69 @@ function renderMyCard(){
   const box=document.getElementById('qr-box');
   if(box){ box.innerHTML=''; if(window.QRCode){ _qr=new QRCode(box,{text:cardUrl(),width:190,height:190,colorDark:'#1a1d2e',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.M}); } }
 }
-function downloadQR(){
-  const img=document.querySelector('#qr-box img')||document.querySelector('#qr-box canvas');
-  if(!img){toast('QR not ready yet','var(--red)');return;}
-  const a=document.createElement('a');a.download='yalo-card-qr.png';
-  a.href=img.tagName==='CANVAS'?img.toDataURL('image/png'):img.src;a.click();
-  toast('QR downloaded');
+// Get the QR as a <canvas> regardless of how the library rendered it
+function qrSourceCanvas(){
+  const box=document.getElementById('qr-box'); if(!box)return null;
+  const canvas=box.querySelector('canvas'); if(canvas)return canvas;
+  const img=box.querySelector('img');
+  if(img&&(img.complete)){
+    const c=document.createElement('canvas');
+    c.width=img.naturalWidth||190;c.height=img.naturalHeight||190;
+    c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+    return c;
+  }
+  return null;
+}
+// Compose a clean, branded, print-ready PNG (data URL) around the QR
+function buildQRCardDataURL(){
+  const src=qrSourceCanvas(); if(!src)return null;
+  const m=myInfo();
+  const S=1000, pad=90, qr=S-pad*2, bottom=m.name?170:90;
+  const c=document.createElement('canvas'); c.width=S; c.height=120+qr+bottom;
+  const ctx=c.getContext('2d');
+  ctx.fillStyle='#ffffff'; ctx.fillRect(0,0,c.width,c.height);
+  ctx.textAlign='center';
+  ctx.fillStyle='#4f46e5'; ctx.font='800 46px "Plus Jakarta Sans",Arial,sans-serif';
+  ctx.fillText('ya-lo', S/2, 74);
+  ctx.imageSmoothingEnabled=false;            // keep QR edges crisp when upscaled
+  ctx.drawImage(src, pad, 110, qr, qr);
+  const baseY=110+qr;
+  if(m.name){ ctx.fillStyle='#1a1d2e'; ctx.font='800 42px "Plus Jakarta Sans",Arial,sans-serif'; ctx.fillText(m.name, S/2, baseY+66); }
+  ctx.fillStyle='#8a92a6'; ctx.font='600 28px "Plus Jakarta Sans",Arial,sans-serif';
+  ctx.fillText('Scan to save my contact', S/2, baseY+(m.name?112:56));
+  return c.toDataURL('image/png');
+}
+function dataURLtoBlob(u){
+  const parts=u.split(','), mime=parts[0].match(/:(.*?);/)[1], bin=atob(parts[1]);
+  const arr=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++)arr[i]=bin.charCodeAt(i);
+  return new Blob([arr],{type:mime});
+}
+async function downloadQR(){
+  const url=buildQRCardDataURL();
+  if(!url){toast('QR still loading — try again in a second','var(--red)');return;}
+  const blob=dataURLtoBlob(url);
+  const file=new File([blob],'yalo-card-qr.png',{type:'image/png'});
+  // On phones this opens the share sheet → "Save Image" / "Save to Files"
+  if(navigator.canShare&&navigator.canShare({files:[file]})){
+    try{ await navigator.share({files:[file],title:'My YALO QR card'}); return; }
+    catch(e){ if(e&&e.name==='AbortError')return; }
+  }
+  // Desktop & Android Chrome: real file download
+  try{
+    const b=URL.createObjectURL(blob);
+    const a=document.createElement('a'); a.href=b; a.download='yalo-card-qr.png';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(b),4000);
+    toast('QR saved to your downloads');
+  }catch(e){
+    // Last resort: show it full-screen so the QR can be long-pressed / screenshotted
+    showQRLightbox(url);
+  }
+}
+function showQRLightbox(url){
+  const ov=document.getElementById('qr-lightbox');
+  document.getElementById('qr-lightbox-img').src=url;
+  ov.classList.add('open');
 }
 async function shareCard(){
   const url=cardUrl();
