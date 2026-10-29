@@ -125,8 +125,8 @@ function render(){
 }
 render();
 
-// Pull live profile from Settings
-getDoc(doc(db,'settings','main')).then(snap=>{
+// Pull live public profile (never the private settings)
+getDoc(doc(db,'publicProfile','main')).then(snap=>{
   if(snap.exists()){
     const s = snap.data();
     ME = { ...FALLBACK,
@@ -162,11 +162,12 @@ function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(
 function loadQueue(){ try{ return JSON.parse(localStorage.getItem(QUEUE_KEY)||'[]'); }catch(e){ return []; } }
 function saveQueue(q){ try{ localStorage.setItem(QUEUE_KEY,JSON.stringify(q)); }catch(e){} }
 async function sendLead(lead){ await setDoc(doc(db,'leads',lead.id),lead); }
+function removeFromQueue(id){ saveQueue(loadQueue().filter(l=>l.id!==id)); }
 async function flushQueue(){
-  const q=loadQueue(); if(!q.length)return;
-  const left=[];
-  for(const lead of q){ try{ await sendLead(lead); }catch(e){ left.push(lead); } }
-  saveQueue(left);
+  for(const lead of loadQueue()){
+    try{ await sendLead(lead); removeFromQueue(lead.id); }
+    catch(e){ if(e&&e.code==='permission-denied')removeFromQueue(lead.id); } // already created earlier
+  }
 }
 window.addEventListener('online',flushQueue);
 flushQueue();
@@ -187,9 +188,12 @@ window.submitLead=async function(e){
     contacts:[{ name, title:'', email:document.getElementById('f-email').value.trim(), phone:document.getElementById('f-phone').value.trim(), linkedin:'' }],
     emails:[]
   };
-  let queued=false;
-  try{ await sendLead(lead); }
-  catch(err){ const q=loadQueue(); q.push(lead); saveQueue(q); queued=true; }
+  // Keep a local backup until the server confirms. With no signal the write
+  // stays pending, so don't wait on it forever.
+  const q=loadQueue(); q.push(lead); saveQueue(q);
+  const ack=sendLead(lead).then(()=>{removeFromQueue(lead.id);return true;}).catch(err=>{console.warn('lead send:',err.code);return false;});
+  const confirmed=await Promise.race([ack,new Promise(r=>setTimeout(()=>r(false),5000))]);
+  const queued=!confirmed;
   document.getElementById('form-section').innerHTML =
     `<div class="success-wrap"><div class="success-ic">✓</div>
      <div class="sec-title">${queued?'Saved!':'Got it — thank you!'}</div>

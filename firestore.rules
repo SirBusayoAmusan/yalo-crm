@@ -2,15 +2,49 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Core CRM data used by the app (no Firebase Auth in use).
-    match /leads/{id}        { allow read, write: if true; }
-    match /activities/{id}   { allow read, write: if true; }
-    match /settings/{id}     { allow read, write: if true; }
-    match /reminders/{id}    { allow read, write: if true; }
-    match /notifications/{id}{ allow read, write: if true; }
+    // Only these verified Google accounts can use the CRM.
+    function isOwner() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && request.auth.token.email in [
+          'synccityng@gmail.com',
+          'bishopbusayo8@gmail.com',
+          'busayogrowth@gmail.com'
+        ];
+    }
 
-    // The public digital-card page (card.html) lets a visitor who scans your
-    // QR submit their own details as a new lead, and read your public profile.
-    // Those operations use the leads/settings rules above.
+    // A lead submitted from the public QR card page (no login).
+    // Create-only, fixed shape, size-limited.
+    function isPublicCardLead(id) {
+      let d = request.resource.data;
+      return d.keys().hasOnly([
+          'id','company','sector','hq','size','website','value','blocker','disbursed',
+          'fit','source','owner','stage','createdAt','notes','contactedAt','contacts','emails'
+        ])
+        && d.id == id
+        && d.source == 'QR Card'
+        && d.stage == 'New'
+        && d.value == 0
+        && d.company is string && d.company.size() <= 200
+        && d.notes is string && d.notes.size() <= 1500
+        && d.contacts is list && d.contacts.size() <= 1
+        && d.emails is list && d.emails.size() == 0;
+    }
+
+    // CRM data: owners only.
+    match /leads/{id} {
+      allow read, update, delete: if isOwner();
+      allow create: if isOwner() || isPublicCardLead(id);
+    }
+    match /activities/{id}    { allow read, write: if isOwner(); }
+    match /settings/{id}      { allow read, write: if isOwner(); }
+    match /reminders/{id}     { allow read, write: if isOwner(); }
+    match /notifications/{id} { allow read, write: if isOwner(); }
+
+    // Non-sensitive profile shown on the public card page.
+    match /publicProfile/{id} {
+      allow read: if true;
+      allow write: if isOwner();
+    }
   }
 }
