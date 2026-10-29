@@ -1,0 +1,9 @@
+{
+  "name": "YALO Sales CRM",
+  "short_name": "YALO CRM",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#f0f7e6",
+  "theme_color": "#1a1a2e",
+  "icons": []
+}

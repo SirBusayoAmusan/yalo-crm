@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Busayo Amusan — YALO Technologies</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1a1a2e">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+--g:#7cbb42;--gd:#5a9a2a;--gl:#e8f5d6;--gll:#f4fae8;
+--dark:#1a1a2e;--bg:#f0f7e6;--text:#1a1a2e;--muted:#6b7a5e;
+--border:#d4e8b0;--red:#e74c3c;--shadow:0 2px 12px rgba(124,187,66,.12);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;justify-content:center;padding:28px 16px}
+.wrap{width:100%;max-width:420px}
+.card{background:var(--dark);border-radius:20px;padding:28px 24px;color:#fff;text-align:center;box-shadow:var(--shadow)}
+.logo-mark{font-size:22px;font-weight:800;color:var(--g);letter-spacing:-1px}
+.name{font-size:24px;font-weight:800;margin-top:14px}
+.title{font-size:14px;color:rgba(255,255,255,.65);margin-top:4px}
+.company{font-size:13px;color:var(--g);font-weight:600;margin-top:8px}
+.quicklinks{display:flex;gap:8px;justify-content:center;margin-top:18px;flex-wrap:wrap}
+.qlink{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);color:#fff;text-decoration:none;font-size:12px;font-weight:600;padding:9px 13px;border-radius:10px}
+.save-btn{display:block;width:100%;margin-top:20px;background:var(--g);color:#0e1a06;border:none;border-radius:12px;padding:15px;font-size:15px;font-weight:800;font-family:inherit;cursor:pointer}
+.save-btn:active{background:var(--gd)}
+.section{background:#fff;border:1px solid var(--border);border-radius:16px;padding:20px;margin-top:16px;box-shadow:var(--shadow)}
+.sec-title{font-size:15px;font-weight:800}
+.sec-sub{font-size:12px;color:var(--muted);margin-top:3px;margin-bottom:14px}
+.fg{margin-bottom:12px}
+.fl{font-size:12px;font-weight:700;color:var(--muted);display:block;margin-bottom:5px}
+.fi,.fta{width:100%;border:1.5px solid var(--border);border-radius:10px;padding:11px 12px;font-family:inherit;font-size:14px;background:var(--gll)}
+.fta{min-height:70px;resize:vertical}
+.fi:focus,.fta:focus{outline:none;border-color:var(--g)}
+.submit-btn{width:100%;background:var(--dark);color:#fff;border:none;border-radius:12px;padding:14px;font-size:14px;font-weight:800;font-family:inherit;cursor:pointer;margin-top:4px}
+.submit-btn:disabled{opacity:.6}
+.msg{font-size:13px;font-weight:600;margin-top:12px;text-align:center;display:none}
+.msg.ok{display:block;color:var(--gd)}
+.msg.queued{display:block;color:#b8860b}
+.msg.err{display:block;color:var(--red)}
+.footer{text-align:center;font-size:11px;color:var(--muted);margin-top:18px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="card">
+    <div class="logo-mark">ya-lo</div>
+    <div class="name" id="c-name"></div>
+    <div class="title" id="c-title"></div>
+    <div class="company" id="c-company"></div>
+    <div class="quicklinks">
+      <a class="qlink" id="c-call" href="#">📞 Call</a>
+      <a class="qlink" id="c-email" href="#">✉️ Email</a>
+      <a class="qlink" id="c-wa" href="#" target="_blank" rel="noopener">💬 WhatsApp</a>
+    </div>
+    <button class="save-btn" onclick="saveContact()">⬇️ Save My Contact</button>
+  </div>
+
+  <div class="section">
+    <div class="sec-title">Let's stay in touch</div>
+    <div class="sec-sub">Drop your details and I'll follow up directly.</div>
+    <form id="lead-form" onsubmit="submitLead(event)">
+      <div class="fg"><label class="fl">Your name *</label><input class="fi" id="f-name" required placeholder="e.g. Tayo Rotimi"></div>
+      <div class="fg"><label class="fl">Company</label><input class="fi" id="f-co" placeholder="e.g. MacTay Consulting"></div>
+      <div class="fg"><label class="fl">Email</label><input class="fi" id="f-email" type="email" placeholder="you@company.com"></div>
+      <div class="fg"><label class="fl">Phone / WhatsApp</label><input class="fi" id="f-phone" placeholder="+234..."></div>
+      <div class="fg"><label class="fl">What are you interested in?</label><textarea class="fta" id="f-note" placeholder="e.g. office rent financing for 40 staff"></textarea></div>
+      <button class="submit-btn" id="submit-btn" type="submit">Send my details</button>
+    </form>
+    <div class="msg" id="lead-msg"></div>
+  </div>
+
+  <div class="footer">Powered by ya-lo</div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, doc, setDoc, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+// Edit these before printing your QR code.
+const ME = {
+  name: 'Busayo Amusan',
+  title: 'Head of Partnerships',
+  company: 'YALO Technologies',
+  email: 'support@yalo.ng',
+  phone: '',
+  website: 'https://yalo.ng'
+};
+
+document.getElementById('c-name').textContent = ME.name;
+document.getElementById('c-title').textContent = ME.title;
+document.getElementById('c-company').textContent = ME.company;
+document.getElementById('c-call').href = ME.phone ? `tel:${ME.phone}` : '#';
+document.getElementById('c-email').href = `mailto:${ME.email}`;
+document.getElementById('c-wa').href = ME.phone ? `https://wa.me/${ME.phone.replace(/[^0-9]/g,'')}` : '#';
+
+window.saveContact = function(){
+  const vcard = [
+    'BEGIN:VCARD','VERSION:3.0',
+    `FN:${ME.name}`,
+    `N:${ME.name.split(' ').slice(-1)[0]};${ME.name.split(' ').slice(0,-1).join(' ')};;;`,
+    `ORG:${ME.company}`,
+    `TITLE:${ME.title}`,
+    `EMAIL;TYPE=WORK:${ME.email}`,
+    ME.phone ? `TEL;TYPE=CELL:${ME.phone}` : '',
+    ME.website ? `URL:${ME.website}` : '',
+    'END:VCARD'
+  ].filter(Boolean).join('\r\n');
+  const blob = new Blob([vcard], {type:'text/vcard'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${ME.name.replace(/\s+/g,'_')}.vcf`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+};
+
+const firebaseConfig = {
+  apiKey: "AIzaSyD_0WnGjD1YKlrT86RXL79OvqfIoAm3ccc",
+  authDomain: "yalo-crm.firebaseapp.com",
+  projectId: "yalo-crm",
+  storageBucket: "yalo-crm.firebasestorage.app",
+  messagingSenderId: "1003166589543",
+  appId: "1:1003166589543:web:c2e22341675f1cf053eac2"
+};
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+enableIndexedDbPersistence(db).catch(()=>{});
+
+const QUEUE_KEY = 'yalo_pending_leads';
+function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+
+function loadQueue(){ try{ return JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]'); }catch(e){ return []; } }
+function saveQueue(q){ localStorage.setItem(QUEUE_KEY, JSON.stringify(q)); }
+
+async function sendLead(lead){
+  await setDoc(doc(db, 'leads', lead.id), lead);
+}
+
+async function flushQueue(){
+  const q = loadQueue();
+  if (!q.length) return;
+  const remaining = [];
+  for (const lead of q){
+    try { await sendLead(lead); } catch(e){ remaining.push(lead); }
+  }
+  saveQueue(remaining);
+}
+window.addEventListener('online', flushQueue);
+flushQueue();
+
+window.submitLead = async function(e){
+  e.preventDefault();
+  const name = document.getElementById('f-name').value.trim();
+  if (!name) return;
+  const btn = document.getElementById('submit-btn');
+  const msg = document.getElementById('lead-msg');
+  btn.disabled = true;
+
+  const lead = {
+    id: uid(),
+    company: document.getElementById('f-co').value.trim() || name,
+    sector: '', hq: '', size: '', website: '', value: 0,
+    blocker: '', disbursed: 0, fit: '',
+    source: 'QR Card', owner: 'Unassigned', stage: 'New',
+    createdAt: new Date().toISOString(), notes: document.getElementById('f-note').value.trim(),
+    contactedAt: null,
+    contacts: [{
+      name, title: '',
+      email: document.getElementById('f-email').value.trim(),
+      phone: document.getElementById('f-phone').value.trim(),
+      linkedin: ''
+    }],
+    emails: []
+  };
+
+  try {
+    await sendLead(lead);
+    msg.textContent = "Got it — I'll be in touch shortly!";
+    msg.className = 'msg ok';
+  } catch (err) {
+    const q = loadQueue();
+    q.push(lead);
+    saveQueue(q);
+    msg.textContent = "Saved on your device — this will send automatically once you're back online.";
+    msg.className = 'msg queued';
+  }
+  document.getElementById('lead-form').reset();
+  btn.disabled = false;
+};
+</script>
+
+<script>
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+}
+</script>
+</body>
+</html>
