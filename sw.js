@@ -1,3 +1,25 @@
+// ---- Firebase Cloud Messaging (background push) ----
+try {
+  importScripts('https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js');
+  importScripts('https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-compat.js');
+  firebase.initializeApp({
+    apiKey: "AIzaSyD_0WnGjD1YKlrT86RXL79OvqfIoAm3ccc",
+    authDomain: "yalo-crm.firebaseapp.com",
+    projectId: "yalo-crm",
+    storageBucket: "yalo-crm.firebasestorage.app",
+    messagingSenderId: "1003166589543",
+    appId: "1:1003166589543:web:c2e22341675f1cf053eac2"
+  });
+  const messaging = firebase.messaging();
+  messaging.onBackgroundMessage(payload => {
+    const d = payload.data || {};
+    self.registration.showNotification(d.title || 'YALO CRM', {
+      body: d.body || '', icon: 'icon-192.png', badge: 'icon-192.png',
+      tag: d.remId ? 'yalo-rem-' + d.remId : undefined, data: d
+    });
+  });
+} catch (e) { /* messaging optional; app shell still works */ }
+
 const CACHE = 'yalo-crm-shell-v3';
 const LIBS = 'yalo-crm-libs-v1';
 const SHELL = ['index.html', 'card.html', 'manifest.json', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png', 'favicon-32.png', 'icon.svg'];

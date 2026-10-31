@@ -46,5 +46,11 @@ service cloud.firestore {
       allow read: if true;
       allow write: if isOwner();
     }
+
+    // Device push tokens (owners only). The Cloud Function uses the Admin SDK
+    // and bypasses these rules.
+    match /pushTokens/{token} {
+      allow read, write: if isOwner();
+    }
   }
 }

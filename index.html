@@ -19,6 +19,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot, getDocs, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getMessaging, getToken, onMessage, isSupported } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyD_0WnGjD1YKlrT86RXL79OvqfIoAm3ccc",
@@ -49,6 +50,22 @@ window.FB = {
   },
   async deletePublicProfile(id) {
     await deleteDoc(doc(db, "publicProfile", id));
+  },
+  // ---- Push (FCM) ----
+  async initMessaging(vapidKey, onForeground) {
+    if (!(await isSupported().catch(() => false))) throw new Error("Push not supported on this browser");
+    const messaging = getMessaging(app);
+    const reg = await navigator.serviceWorker.ready;
+    const token = await getToken(messaging, { vapidKey, serviceWorkerRegistration: reg });
+    if (!token) throw new Error("Could not get a push token");
+    if (!window.__fcmBound) {
+      window.__fcmBound = true;
+      onMessage(messaging, payload => { if (onForeground) onForeground(payload); });
+    }
+    return token;
+  },
+  async savePushToken(token, email) {
+    await setDoc(doc(db, "pushTokens", token), { token, email: email || "", ua: navigator.userAgent, updatedAt: new Date().toISOString() });
   },
   async saveLead(lead) {
     await setDoc(doc(db, "leads", lead.id), lead);
@@ -857,6 +874,16 @@ body.authed .login-screen{display:none}
       <div class="sssub">Your Anthropic API key — stored in Firebase, syncs across all devices.</div>
       <div class="fg"><label class="fl">Anthropic API Key</label><input class="fi" type="password" id="s-key" placeholder="sk-ant-..."></div>
       <button class="btn btn-g" onclick="saveSettings()">Save</button>
+    </div>
+    <div class="sset">
+      <div class="sstitle">Push notifications (reminders when the app is closed)</div>
+      <div class="sssub">Paste your Firebase <b>Web Push certificate</b> key pair (Project Settings → Cloud Messaging → Web configuration). Then tap Enable on each device/phone you use.</div>
+      <div class="fg"><label class="fl">Web Push (VAPID) public key</label><input class="fi" id="s-vapid" placeholder="BISb... (long key)"></div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn btn-g" onclick="saveSettings()">Save key</button>
+        <button class="btn btn-ghost" onclick="enablePushHere()">🔔 Enable on this device</button>
+      </div>
+      <div id="push-status" style="font-size:12px;color:var(--muted);margin-top:12px"></div>
     </div>
     <div class="sset">
       <div class="sstitle">Your Details & Digital Card</div>
@@ -1784,7 +1811,8 @@ function loadSettingsUI(){
   const set=(id,v)=>{const e=document.getElementById(id);if(e&&v!=null)e.value=v;};
   set('s-key',s.apiKey);set('s-name',s.name);set('s-title',s.title);set('s-company',s.company);
   set('s-email',s.email);set('s-phone',s.phone);set('s-website',s.website);
-  set('s-linkedin',s.linkedin);set('s-twitter',s.twitter);
+  set('s-linkedin',s.linkedin);set('s-twitter',s.twitter);set('s-vapid',s.vapidKey);
+  renderPushStatus();
   if(s.tone)document.getElementById('s-tone').value=s.tone;
   if(s.market)document.getElementById('s-mkt').value=s.market;
   renderPhotoDrop(s.photo);
@@ -1826,6 +1854,7 @@ async function saveSettings(){
     website:g('s-website')?.value.trim()||'',
     linkedin:g('s-linkedin')?.value.trim()||'',
     twitter:g('s-twitter')?.value.trim()||'',
+    vapidKey:g('s-vapid')?.value.trim()||'',
     tone:g('s-tone').value,
     market:g('s-mkt').value
   };
@@ -2601,7 +2630,12 @@ function pushNotify(title,body){
 function enablePush(){
   if(!('Notification'in window)){toast('Notifications not supported here','var(--red)');return;}
   Notification.requestPermission().then(p=>{
-    if(p==='granted'){toast('Device alerts on 🔔');pushNotify('YALO CRM','Alerts are on — new leads & follow-ups will nudge you.');syncReminderTriggers();}
+    if(p==='granted'){
+      toast('Device alerts on 🔔');
+      pushNotify('YALO CRM','Alerts are on — new leads & follow-ups will nudge you.');
+      syncReminderTriggers();
+      registerPush().then(ok=>{ if(ok)toast('Closed-app reminders enabled on this device ✓'); });
+    }
     else toast('Notifications blocked','var(--amber)');
     updatePushBtn();
   });
@@ -2694,7 +2728,11 @@ function maybeAutoReminder(l){
   window.FB.saveReminder({id:uid(),leadId:l.id,company:l.company,contactName:c.name||'',phone:c.phone,
     note:`Send WhatsApp intro to ${c.name||l.company}`,when:when.toISOString(),done:false,fired:false,auto:true,createdAt:new Date().toISOString()});
 }
+function pushBackendActive(){ try{ return !!localStorage.getItem('yalo_push_token'); }catch(e){ return false; } }
 function checkDueReminders(){
+  // When the push backend is live, the Cloud Function fires reminders (and writes
+  // the in-app notification) even with the app closed — so the client stays out of it.
+  if(pushBackendActive()){ renderHero(); return; }
   const now=new Date();
   reminders.filter(r=>!r.done&&!r.fired&&new Date(r.when)<=now).forEach(r=>{
     r.fired=true;window.FB.saveReminder(r);
@@ -2702,6 +2740,52 @@ function checkDueReminders(){
     addNotif({type:'reminder',icon:'⏰',title:'Follow-up reminder',desc:`${r.company}: ${r.note}`,leadId:r.leadId}, TRIGGERS);
   });
   renderHero();
+}
+
+/* ---- Push backend (FCM): reminders fire even when the app is fully closed ---- */
+async function registerPush(){
+  const vapid=(settings.vapidKey||'').trim();
+  if(!vapid)return false;
+  if(!('Notification'in window)||Notification.permission!=='granted')return false;
+  try{
+    const token=await window.FB.initMessaging(vapid, onForegroundPush);
+    const email=(document.getElementById('acct-email')?.textContent)||'';
+    await window.FB.savePushToken(token,email);
+    try{ localStorage.setItem('yalo_push_token',token); }catch(e){}
+    updatePushBtn();
+    return true;
+  }catch(e){ console.warn('push register:',e.message); return false; }
+}
+async function enablePushHere(){
+  const vapid=(document.getElementById('s-vapid')?.value||'').trim();
+  if(!vapid){toast('Paste & save your Web Push key first','var(--red)');return;}
+  if(!settings.vapidKey||settings.vapidKey!==vapid){ await saveSettings(); }
+  if(!('Notification'in window)){toast('Not supported on this browser','var(--red)');return;}
+  let perm=Notification.permission;
+  if(perm!=='granted')perm=await Notification.requestPermission();
+  if(perm!=='granted'){toast('Notifications blocked','var(--amber)');renderPushStatus();return;}
+  const ok=await registerPush();
+  toast(ok?'Closed-app reminders enabled on this device ✓':'Could not enable push here','var(--'+(ok?'g':'red')+')');
+  renderPushStatus();
+}
+function renderPushStatus(){
+  const el=document.getElementById('push-status');if(!el)return;
+  if(!('Notification'in window)){el.textContent='This browser doesn’t support push notifications.';return;}
+  const perm=Notification.permission;
+  const onHere=pushBackendActive();
+  const vapid=(settings.vapidKey||'').trim();
+  if(!vapid){el.innerHTML='⚠️ Add your Web Push key above to turn on closed-app reminders.';return;}
+  if(perm==='denied'){el.innerHTML='🔕 Notifications are blocked for this site in your browser/phone settings — allow them, then tap Enable.';return;}
+  el.innerHTML=onHere
+    ? '✅ This device is set up. Reminders will arrive even with the app closed.<br><span style="color:var(--muted)">On iPhone, add the app to your Home Screen first, then enable from there.</span>'
+    : 'Tap “Enable on this device”. On iPhone, add the app to your Home Screen first.';
+}
+// Foreground FCM: the server already wrote the in-app feed entry; just show the banner.
+function onForegroundPush(payload){
+  const d=payload.data||payload.notification||{};
+  if(navigator.serviceWorker&&navigator.serviceWorker.ready){
+    navigator.serviceWorker.ready.then(reg=>reg.showNotification(d.title||'YALO CRM',{body:d.body||'',icon:'icon-192.png',badge:'icon-192.png',data:d})).catch(()=>{});
+  }
 }
 
 /* Best-effort: schedule reminders to fire even when the app is closed.
@@ -2765,6 +2849,8 @@ updatePushBtn();updateBadge();updateNetBadge();
 setTimeout(checkDueReminders,5000);
 setInterval(checkDueReminders,60000);
 setTimeout(syncReminderTriggers,6000);
+// Re-register the push token on each launch (tokens rotate) once settings are loaded.
+setTimeout(()=>{ if(settings&&settings.vapidKey&&('Notification'in window)&&Notification.permission==='granted')registerPush(); },7000);
 </script>
 
 <div class="bottom-nav" id="bottom-nav">
