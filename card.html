@@ -125,13 +125,15 @@ function render(){
 }
 render();
 
+// Which card? ?p=<id> selects an extra profile; default is the "Main card".
+const profileId = (new URLSearchParams(location.search).get('p')) || 'main';
 // Pull live public profile (never the private settings)
-getDoc(doc(db,'publicProfile','main')).then(snap=>{
+getDoc(doc(db,'publicProfile',profileId)).then(snap=>{
   if(snap.exists()){
     const s = snap.data();
-    ME = { ...FALLBACK,
-      name:s.name||FALLBACK.name, title:s.title||FALLBACK.title, company:s.company||FALLBACK.company,
-      email:s.email||FALLBACK.email, phone:s.phone||'', website:s.website||FALLBACK.website,
+    ME = { ...(profileId==='main'?FALLBACK:{name:'',company:''}),
+      name:s.name||FALLBACK.name, title:s.title||'', company:s.company||'',
+      email:s.email||'', phone:s.phone||'', website:s.website||'',
       linkedin:s.linkedin||'', twitter:s.twitter||'', photo:s.photo||'' };
     render();
   }

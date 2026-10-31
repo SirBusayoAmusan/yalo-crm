@@ -44,8 +44,11 @@ window.FB = {
   },
   async signOutUser() { await signOut(auth); },
   onAuth(cb) { return onAuthStateChanged(auth, cb); },
-  async savePublicProfile(p) {
-    await setDoc(doc(db, "publicProfile", "main"), p);
+  async savePublicProfile(id, p) {
+    await setDoc(doc(db, "publicProfile", id), p);
+  },
+  async deletePublicProfile(id) {
+    await deleteDoc(doc(db, "publicProfile", id));
   },
   async saveLead(lead) {
     await setDoc(doc(db, "leads", lead.id), lead);
@@ -513,6 +516,23 @@ body{-webkit-font-smoothing:antialiased}
 .install-banner .ib-tx{flex:1;font-size:12px;line-height:1.35}
 .install-banner .ib-tx b{font-size:13px}
 
+/* Profile switcher */
+.profile-switch{display:flex;gap:8px;overflow-x:auto;padding:2px 2px 12px;scrollbar-width:none}
+.profile-switch::-webkit-scrollbar{display:none}
+.pchip{flex-shrink:0;display:inline-flex;align-items:center;gap:6px;padding:9px 15px;border-radius:20px;border:1.5px solid var(--border);background:#fff;color:var(--muted);font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;transition:.2s;white-space:nowrap}
+.pchip.on{background:var(--hero);color:#fff;border-color:transparent;box-shadow:0 6px 16px rgba(79,91,213,.28)}
+.pchip.add{color:var(--g);border-style:dashed}
+/* More sheet */
+.sheet-ov{position:fixed;inset:0;z-index:420;background:rgba(10,12,30,.45);display:none;align-items:flex-end;justify-content:center}
+.sheet-ov.open{display:flex;animation:fadeUp .2s ease}
+.sheet{background:#fff;border-radius:22px 22px 0 0;width:100%;max-width:560px;padding:12px 18px calc(18px + env(safe-area-inset-bottom));box-shadow:0 -10px 40px rgba(20,24,60,.2);animation:slideUp .28s cubic-bezier(.4,0,.2,1)}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.sheet-grip{width:40px;height:4px;border-radius:2px;background:var(--border);margin:4px auto 12px}
+.sheet-title{font-size:16px;font-weight:800;margin-bottom:14px;padding-left:4px}
+.sheet-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px}
+.sheet-item{display:flex;flex-direction:column;align-items:center;gap:7px;padding:16px 6px;border-radius:14px;border:1px solid var(--border);background:var(--gll);font-size:12px;font-weight:700;color:var(--text);cursor:pointer;font-family:inherit;transition:.2s}
+.sheet-item:hover{background:#fff;box-shadow:var(--shadow)}
+.sheet-item span{font-size:22px}
 .qr-lightbox{position:fixed;inset:0;z-index:600;background:rgba(10,12,30,.82);display:none;align-items:center;justify-content:center;padding:24px}
 .qr-lightbox.open{display:flex;animation:fadeUp .2s ease}
 .qr-lightbox-inner{background:#fff;border-radius:20px;padding:20px;max-width:340px;width:100%}
@@ -621,7 +641,7 @@ body.authed .login-screen{display:none}
       <button class="qa" onclick="showTab('scan')"><div class="qa-ic">📸</div><div class="qa-lb">Scan Card</div></button>
       <button class="qa" onclick="showTab('mycard')"><div class="qa-ic">🪪</div><div class="qa-lb">My Card</div></button>
       <button class="qa" onclick="showTab('reminders')"><div class="qa-ic">⏰</div><div class="qa-lb">Reminders</div></button>
-      <button class="qa" onclick="showTab('leads')"><div class="qa-ic">🏢</div><div class="qa-lb">Leads</div></button>
+      <button class="qa" onclick="showTab('generator')"><div class="qa-ic">🔍</div><div class="qa-lb">Research</div></button>
     </div>
 
     <div class="metrics" id="metrics"></div>
@@ -656,6 +676,7 @@ body.authed .login-screen{display:none}
   <!-- MY CARD -->
   <div class="content" id="tab-mycard" style="display:none">
     <div class="mycard-wrap">
+      <div class="profile-switch" id="profile-switch"></div>
       <div class="vcard" id="vcard-preview"></div>
       <div class="qr-card">
         <div style="font-size:13px;font-weight:800;margin-bottom:3px">Your scannable QR</div>
@@ -665,7 +686,7 @@ body.authed .login-screen{display:none}
           <button class="btn btn-g" onclick="downloadVCard()">⬇️ Save My Contact (.vcf)</button>
           <button class="btn btn-ghost" onclick="downloadQR()">⬇️ Download QR</button>
           <button class="btn btn-ghost" onclick="shareCard()">🔗 Share Card Link</button>
-          <button class="btn btn-ghost" onclick="showTab('settings')">✏️ Edit My Details</button>
+          <button class="btn btn-ghost" onclick="editActiveProfile()">✏️ Edit this card</button>
         </div>
       </div>
       <div class="card" style="margin-top:16px;padding:16px">
@@ -1018,6 +1039,52 @@ body.authed .login-screen{display:none}
   </div>
 </div>
 
+<!-- PROFILE EDITOR MODAL -->
+<div class="cmo" id="prof-mo">
+  <div class="cm" style="max-width:460px">
+    <div class="cmtitle" id="prof-title">Edit card</div>
+    <div class="cmsub">A separate card with its own QR, photo and details.</div>
+    <div style="display:flex;gap:16px;align-items:center;margin-bottom:16px">
+      <label class="photo-drop" id="prof-photo-drop" for="prof-photo-input"><span>Add<br>photo</span></label>
+      <input type="file" accept="image/*" id="prof-photo-input" style="display:none" onchange="onProfPhoto(event)">
+      <div style="font-size:12px;color:var(--muted);line-height:1.5">Shows on this card.<br><button class="btn btn-ghost btn-sm" type="button" style="margin-top:6px" onclick="clearProfPhoto()">Remove photo</button></div>
+    </div>
+    <div class="fg"><label class="fl">Card name (only you see this)</label><input class="fi" id="prof-label" placeholder="e.g. YALO Partnerships, Personal"></div>
+    <div class="g2">
+      <div class="fg"><label class="fl">Full name</label><input class="fi" id="prof-name" placeholder="Busayo Amusan"></div>
+      <div class="fg"><label class="fl">Title</label><input class="fi" id="prof-title-f" placeholder="Head of Partnerships"></div>
+      <div class="fg"><label class="fl">Company</label><input class="fi" id="prof-company" placeholder="YALO Technologies"></div>
+      <div class="fg"><label class="fl">Email</label><input class="fi" id="prof-email" type="email" placeholder="you@yalo.ng"></div>
+      <div class="fg"><label class="fl">WhatsApp / Phone</label><input class="fi" id="prof-phone" placeholder="+2348…"></div>
+      <div class="fg"><label class="fl">Website</label><input class="fi" id="prof-website" placeholder="yalo.ng"></div>
+      <div class="fg"><label class="fl">LinkedIn</label><input class="fi" id="prof-linkedin" placeholder="linkedin.com/in/…"></div>
+      <div class="fg"><label class="fl">X / Twitter</label><input class="fi" id="prof-twitter" placeholder="@handle"></div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:8px">
+      <button class="btn btn-ghost" id="prof-del-btn" onclick="deleteActiveProfile()" style="color:var(--red)">Delete</button>
+      <button class="btn btn-ghost" onclick="closeProfModal()" style="flex:1">Cancel</button>
+      <button class="btn btn-g" onclick="saveProfile()" style="flex:1">Save card</button>
+    </div>
+  </div>
+</div>
+
+<!-- MORE SHEET -->
+<div class="sheet-ov" id="more-sheet" onclick="toggleMore(false)">
+  <div class="sheet" onclick="event.stopPropagation()">
+    <div class="sheet-grip"></div>
+    <div class="sheet-title">More</div>
+    <div class="sheet-grid">
+      <button class="sheet-item" onclick="moreGo('generator')"><span>🔍</span>Research</button>
+      <button class="sheet-item" onclick="moreGo('activity')"><span>⚡</span>Activity</button>
+      <button class="sheet-item" onclick="moreGo('scripts')"><span>📝</span>Scripts</button>
+      <button class="sheet-item" onclick="moreGo('warplan')"><span>⚔️</span>War Plan</button>
+      <button class="sheet-item" onclick="moreGo('trash')"><span>🗑️</span>Trash</button>
+      <button class="sheet-item" onclick="moreGo('settings')"><span>⚙️</span>Settings</button>
+    </div>
+    <button class="btn btn-ghost" style="width:100%;margin-top:6px" onclick="signOutUser()">Sign out</button>
+  </div>
+</div>
+
 <!-- INSTALL BANNER -->
 <div class="install-banner" id="install-banner">
   <div class="ib-ic">📲</div>
@@ -1154,16 +1221,19 @@ function startApp(){
     }
     if(curTab==='mycard')renderMyCard();
   });
-  window.FB.listenReminders(data=>{reminders=data;if(curTab==='reminders')renderReminders();renderHero();});
+  window.FB.listenReminders(data=>{reminders=data;if(curTab==='reminders')renderReminders();renderHero();syncReminderTriggers();});
   window.FB.listenNotifications(data=>{notifications=data;renderNotifs();updateBadge();});
   setTimeout(seedIfEmpty,2000);
 }
 
 // Public card profile: only non-sensitive fields (never the API key)
+function publicSubset(o){
+  return {name:o.name||'',title:o.title||'',company:o.company||'',email:o.email||'',phone:o.phone||'',
+    website:o.website||'',linkedin:o.linkedin||'',twitter:o.twitter||'',photo:o.photo||''};
+}
+// The "Main card" mirrors your core identity to publicProfile/main
 function syncPublicProfile(s){
-  const p={name:s.name||'',title:s.title||'',company:s.company||'',email:s.email||'',phone:s.phone||'',
-    website:s.website||'',linkedin:s.linkedin||'',twitter:s.twitter||'',photo:s.photo||''};
-  return window.FB.savePublicProfile(p).catch(e=>console.warn('public profile sync failed:',e.code));
+  return window.FB.savePublicProfile('main', publicSubset(s)).catch(e=>console.warn('public profile sync failed:',e.code));
 }
 
 // Notify when a brand-new lead appears (not on first load / not soft-deleted)
@@ -1209,7 +1279,9 @@ function showTab(t){
   document.getElementById('page-title').textContent=titles[t]||t;
   curTab=t;
   document.querySelectorAll('.bn-item').forEach(b=>b.classList.remove('active'));
-  document.getElementById('bn-'+t)?.classList.add('active');
+  const bnEl=document.getElementById('bn-'+t);
+  if(bnEl)bnEl.classList.add('active');
+  else document.getElementById('bn-more')?.classList.add('active'); // secondary tabs live under More
   window.scrollTo({top:0,behavior:'smooth'});
   if(t==='dashboard')renderDash();
   if(t==='leads')renderLeads();
@@ -2165,14 +2237,21 @@ function renderHero(){
 /* ========================================================================
    MY DIGITAL CARD
    ===================================================================== */
-function cardUrl(){ return location.origin + location.pathname.replace(/[^/]*$/,'') + 'card.html'; }
-function myInfo(){
-  return {
+let selectedProfileId='main';
+// "Main card" is your core identity (edited in Settings). Extra cards live in settings.profiles.
+function identityProfile(){
+  return { id:'main', label:'Main card',
     name:settings.name||'Your Name', title:settings.title||'', company:settings.company||'YALO Technologies',
     email:settings.email||'', phone:settings.phone||'', website:settings.website||'',
-    linkedin:settings.linkedin||'', twitter:settings.twitter||'', photo:settings.photo||''
-  };
+    linkedin:settings.linkedin||'', twitter:settings.twitter||'', photo:settings.photo||'' };
 }
+function allProfiles(){ return [identityProfile(), ...((settings.profiles)||[])]; }
+function activeProfile(){ return allProfiles().find(p=>p.id===selectedProfileId)||identityProfile(); }
+function cardUrl(id){
+  const base=location.origin+location.pathname.replace(/[^/]*$/,'')+'card.html';
+  return (id&&id!=='main')?base+'?p='+encodeURIComponent(id):base;
+}
+function myInfo(){ return activeProfile(); }
 function normUrl(u){ return u?(u.startsWith('http')?u:'https://'+u):''; }
 function buildVCard(){
   const m=myInfo();
@@ -2197,7 +2276,16 @@ function downloadVCard(){
   toast('Your contact file downloaded');
 }
 let _qr=null;
+function renderProfileSwitch(){
+  const el=document.getElementById('profile-switch');if(!el)return;
+  const ps=allProfiles();
+  if(!ps.some(p=>p.id===selectedProfileId))selectedProfileId='main';
+  el.innerHTML=ps.map(p=>`<button class="pchip ${p.id===selectedProfileId?'on':''}" onclick="selectProfile('${p.id}')">🪪 ${(p.label||p.name||'Card')}</button>`).join('')
+    +`<button class="pchip add" onclick="newProfile()">＋ New card</button>`;
+}
+function selectProfile(id){ selectedProfileId=id; renderMyCard(); }
 function renderMyCard(){
+  renderProfileSwitch();
   const m=myInfo();
   const photoHtml=m.photo?`<img class="vcard-photo" src="${m.photo}" alt="">`:`<div class="vcard-photo">${inits(m.name)}</div>`;
   const tw=m.twitter?m.twitter.replace(/^@/,''):'';
@@ -2218,7 +2306,69 @@ function renderMyCard(){
       ${chip(normUrl(m.website),'🌐','Website',1)}
     </div>`;
   const box=document.getElementById('qr-box');
-  if(box){ box.innerHTML=''; if(window.QRCode){ _qr=new QRCode(box,{text:cardUrl(),width:190,height:190,colorDark:'#1a1d2e',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.M}); } }
+  if(box){ box.innerHTML=''; if(window.QRCode){ _qr=new QRCode(box,{text:cardUrl(m.id),width:190,height:190,colorDark:'#1a1d2e',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.M}); } }
+}
+
+/* ---- Card profiles (personas) ---- */
+let profEditId=null, profPhoto=undefined;
+function newProfile(){ openProfModal(null); }
+function editActiveProfile(){
+  if(selectedProfileId==='main'){ showTab('settings'); toast('Edit your Main card in Settings'); return; }
+  openProfModal(selectedProfileId);
+}
+function openProfModal(id){
+  profEditId=id; profPhoto=undefined;
+  const p=id?allProfiles().find(x=>x.id===id):{};
+  const g=k=>document.getElementById(k);
+  g('prof-title').textContent=id?'Edit card':'New card';
+  g('prof-label').value=p&&p.label||''; g('prof-name').value=p&&p.name||'';
+  g('prof-title-f').value=p&&p.title||''; g('prof-company').value=p&&p.company||'';
+  g('prof-email').value=p&&p.email||''; g('prof-phone').value=p&&p.phone||'';
+  g('prof-website').value=p&&p.website||''; g('prof-linkedin').value=p&&p.linkedin||''; g('prof-twitter').value=p&&p.twitter||'';
+  renderProfPhoto(p&&p.photo||'');
+  g('prof-del-btn').style.display=id?'':'none';
+  g('prof-mo').classList.add('open');
+}
+function closeProfModal(){ document.getElementById('prof-mo').classList.remove('open'); }
+function renderProfPhoto(photo){
+  const d=document.getElementById('prof-photo-drop');if(!d)return;
+  d.innerHTML=photo?`<img src="${photo}" alt="">`:'<span>Add<br>photo</span>';
+}
+function onProfPhoto(e){
+  const f=e.target.files[0];if(!f)return;
+  const rd=new FileReader();
+  rd.onload=()=>resizeImage(rd.result,320,u=>{profPhoto=u;renderProfPhoto(u);});
+  rd.readAsDataURL(f);
+}
+function clearProfPhoto(){ profPhoto=''; renderProfPhoto(''); }
+async function saveProfile(){
+  const g=k=>document.getElementById(k).value.trim();
+  const name=g('prof-name');
+  if(!name){toast('Add a name for this card','var(--red)');return;}
+  const list=(settings.profiles||[]).slice();
+  let p=profEditId?list.find(x=>x.id===profEditId):null;
+  const existingPhoto=p?p.photo:'';
+  if(!p){ p={id:uid()}; list.push(p); }
+  Object.assign(p,{
+    label:g('prof-label')||name, name, title:g('prof-title-f'), company:g('prof-company'),
+    email:g('prof-email'), phone:g('prof-phone'), website:g('prof-website'),
+    linkedin:g('prof-linkedin'), twitter:g('prof-twitter'),
+    photo: profPhoto!==undefined ? profPhoto : existingPhoto
+  });
+  settings.profiles=list;
+  await window.FB.saveSettings(settings);
+  window.FB.savePublicProfile(p.id, publicSubset(p)).catch(e=>console.warn('profile public sync:',e.code));
+  selectedProfileId=p.id;
+  closeProfModal(); renderMyCard(); toast('Card saved');
+}
+async function deleteActiveProfile(){
+  if(!profEditId){closeProfModal();return;}
+  if(!confirm('Delete this card? Its QR will stop working.'))return;
+  settings.profiles=(settings.profiles||[]).filter(x=>x.id!==profEditId);
+  await window.FB.saveSettings(settings);
+  window.FB.deletePublicProfile(profEditId).catch(()=>{});
+  selectedProfileId='main';
+  closeProfModal(); renderMyCard(); toast('Card deleted');
 }
 // Get the QR as a <canvas> regardless of how the library rendered it
 function qrSourceCanvas(){
@@ -2402,10 +2552,10 @@ function updateNetBadge(){
 /* ========================================================================
    NOTIFICATIONS
    ===================================================================== */
-function addNotif(n){
+function addNotif(n,silent){
   const notif={id:uid(),ts:new Date().toISOString(),read:false,...n};
   window.FB.saveNotification(notif);
-  pushNotify(n.title,n.desc);
+  if(!silent)pushNotify(n.title,n.desc);
   const bell=document.getElementById('bell-btn');if(bell){bell.classList.remove('rung');void bell.offsetWidth;bell.classList.add('rung');}
 }
 function renderNotifs(){
@@ -2451,7 +2601,7 @@ function pushNotify(title,body){
 function enablePush(){
   if(!('Notification'in window)){toast('Notifications not supported here','var(--red)');return;}
   Notification.requestPermission().then(p=>{
-    if(p==='granted'){toast('Device alerts on 🔔');pushNotify('YALO CRM','Alerts are on — new leads & follow-ups will nudge you.');}
+    if(p==='granted'){toast('Device alerts on 🔔');pushNotify('YALO CRM','Alerts are on — new leads & follow-ups will nudge you.');syncReminderTriggers();}
     else toast('Notifications blocked','var(--amber)');
     updatePushBtn();
   });
@@ -2548,10 +2698,48 @@ function checkDueReminders(){
   const now=new Date();
   reminders.filter(r=>!r.done&&!r.fired&&new Date(r.when)<=now).forEach(r=>{
     r.fired=true;window.FB.saveReminder(r);
-    addNotif({type:'reminder',icon:'⏰',title:'Follow-up reminder',desc:`${r.company}: ${r.note}`,leadId:r.leadId});
+    // If the OS scheduled it (Android triggers), don't also fire a second system alert here.
+    addNotif({type:'reminder',icon:'⏰',title:'Follow-up reminder',desc:`${r.company}: ${r.note}`,leadId:r.leadId}, TRIGGERS);
   });
   renderHero();
 }
+
+/* Best-effort: schedule reminders to fire even when the app is closed.
+   Uses the Notification Triggers API (Android Chrome). On iPhone / unsupported
+   browsers this does nothing and the in-app check above remains the fallback. */
+const TRIGGERS = (typeof window.TimestampTrigger==='function');
+let _trigSyncing=false;
+async function syncReminderTriggers(){
+  if(!TRIGGERS)return;
+  if(!('Notification'in window)||Notification.permission!=='granted')return;
+  if(!navigator.serviceWorker)return;
+  if(_trigSyncing)return; _trigSyncing=true;
+  try{
+    const reg=await navigator.serviceWorker.ready;
+    const existing=await reg.getNotifications({includeTriggered:true});
+    existing.forEach(n=>{ if(n.tag&&n.tag.indexOf('yalo-rem-')===0)n.close(); });
+    const now=Date.now();
+    for(const r of reminders){
+      if(r.done)continue;
+      const t=new Date(r.when).getTime();
+      if(isNaN(t)||t<=now)continue;
+      await reg.showNotification('⏰ Follow-up reminder',{
+        tag:'yalo-rem-'+r.id, body:`${r.company}: ${r.note}`,
+        icon:'icon-192.png', badge:'icon-192.png',
+        showTrigger:new TimestampTrigger(t),
+        data:{remId:r.id,leadId:r.leadId||null,url:'./'}
+      });
+    }
+  }catch(e){ console.warn('reminder triggers:',e.message); }
+  _trigSyncing=false;
+}
+
+/* More sheet */
+function toggleMore(open){
+  const el=document.getElementById('more-sheet');
+  el.classList.toggle('open', open===undefined?!el.classList.contains('open'):open);
+}
+function moreGo(tab){ toggleMore(false); showTab(tab); }
 
 /* ========================================================================
    PWA INSTALL
@@ -2576,6 +2764,7 @@ window.addEventListener('offline',updateNetBadge);
 updatePushBtn();updateBadge();updateNetBadge();
 setTimeout(checkDueReminders,5000);
 setInterval(checkDueReminders,60000);
+setTimeout(syncReminderTriggers,6000);
 </script>
 
 <div class="bottom-nav" id="bottom-nav">
@@ -2584,7 +2773,7 @@ setInterval(checkDueReminders,60000);
   <button class="bn-item" id="bn-scan" onclick="showTab('scan')"><span>📸</span>Scan</button>
   <button class="bn-item" id="bn-mycard" onclick="showTab('mycard')"><span>🪪</span>My Card</button>
   <button class="bn-item" id="bn-reminders" onclick="showTab('reminders')"><span>⏰</span>Remind</button>
-  <button class="bn-item" id="bn-settings" onclick="showTab('settings')"><span>⚙️</span>More</button>
+  <button class="bn-item" id="bn-more" onclick="toggleMore(true)"><span>☰</span>More</button>
 </div>
 <script>
 if('serviceWorker' in navigator){
