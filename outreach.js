@@ -41,7 +41,7 @@
       if (!to) primary = `<div class="oq-sub" style="margin-bottom:8px">No email address yet.</div><button class="btn btn-ghost btn-sm" onclick="OUT.open('${lid}',${ci},'overview')">Add email</button>`;
       else {
         primary = `<div class="oq-primary">
-          <a class="btn btn-ghost btn-sm" target="_blank" rel="noopener" href="${esc(YO.gmail(to, f.subject, f.body))}">✉ Gmail</a>
+          <a class="btn btn-ghost btn-sm" target="_blank" rel="noopener" href="${esc(YO.gmail(to, f.subject, f.body, mbox(c)))}">✉ Gmail${mbox(c) ? ' (' + esc(mbox(c).split('@')[0]) + ')' : ''}</a>
           <a class="btn btn-ghost btn-sm" href="${esc(YO.mailto(to, f.subject, f.body))}">📱 Mail app</a>
           <button class="btn btn-g btn-sm oq-go" onclick="OUT.sent('${lid}',${ci},${idx})">✓ I sent it</button></div>`;
         more.push(`<button class="btn btn-ghost btn-sm" onclick="OUT.copy('${lid}',${ci},${idx})">📋 Copy</button>`);
@@ -57,7 +57,9 @@
     if (window.SALES) more.push(`<button class="btn btn-ghost btn-sm" onclick="SALES.personalise('${lid}',${ci},${idx})">✨ Personalise</button>`);
     return { primary, more };
   }
-  const findLead = id => leads.find(x => x.id === id);
+  // leads of the other company are still reachable (the daily sending plan covers both)
+  const mbox = c => (c && ((c.seq && c.seq.mailbox) || c.mailbox)) || '';
+  const findLead = id => leads.find(x => x.id === id) || (window.SALES && SALES.anyLead ? SALES.anyLead(id) : undefined);
   async function save(lead) { await window.FB.saveLead(lead); }
   function warn(msg) { toast(msg, 'var(--red)'); }
 
@@ -230,6 +232,7 @@
     const cap = (arr, n) => arr.slice(0, n).map(cardHtml).join('') + (arr.length > n ? `<div class="oq-sub" style="margin:6px 0 12px">+ ${arr.length - n} more. Clear these first.</div>` : '');
     root.innerHTML = `
       <div class="sec-head" style="margin-top:0"><h3>Email Queue</h3><a onclick="OUT.openImport()">⬆ Import CSV</a></div>
+      <div id="sf-plan-slot"></div>
       <div class="oq-strip">${stat(due.length, 'Overdue')}${stat(today.length, 'Due today')}${stat(ws.sent, 'Sent 7d')}${stat(ws.replies, 'Replies 7d')}${stat(ws.meetings, 'Meetings')}</div>
       ${due.length ? `<div class="oq-h" style="color:var(--red)">Overdue (${due.length})</div>${cap(due, 25)}` : ''}
       ${today.length ? `<div class="oq-h">Due today (${today.length})</div>${cap(today, 25)}` : ''}
@@ -242,6 +245,7 @@
       }).join('')}` : ''}
       ${up.length ? `<div class="oq-h">Coming up (${up.length})</div>${up.slice(0, 15).map(cardHtml).join('')}${up.length > 15 ? `<div class="oq-sub">+ ${up.length - 15} more</div>` : ''}` : ''}
       <div class="oq-ver">Outreach build ${esc(YO.VERSION)}</div>`;
+    if (window.SALES && SALES.afterQueue) SALES.afterQueue();
   }
 
   function refreshNavBadge() {
@@ -277,11 +281,13 @@
       const res = YO.markSent(l, ci, idx, new Date(), { subject: f.subject, body: f.body });
       if (!res) { warn('No running sequence for this person.'); return; }
       await save(l);
-      await addAct({ leadId: l.id, type: 'email', company: l.company, desc: `Sent email ${idx + 1} (${f.label}) to ${fullName(c)}` });
+      const mailbox = f.channel === 'email' && mbox(c) ? mbox(c) : undefined;
+      await addAct(Object.assign({ leadId: l.id, type: 'email', company: l.company, desc: `Sent ${f.channel} ${idx + 1} (${f.label}) to ${fullName(c)}` }, mailbox ? { mailbox } : {}));
       toast(res.complete ? 'Sent. Sequence complete 🎉' : `Sent ✓ Next email due ${fmtDay(res.nextDue)}`);
       OUT.refresh();
     },
     async replied(leadId, ci) {
+      if (window.SALES && SALES.replySheet) return SALES.replySheet(leadId, ci);
       const l = findLead(leadId); if (!l) return;
       const c = (l.contacts || [])[ci];
       const res = YO.markReplied(l, ci, new Date());
@@ -307,7 +313,7 @@
       const l = findLead(leadId); if (!l) return;
       const sel = $('seq-type'); const type = sel && sel.value ? sel.value : null;
       const c = (l.contacts || [])[ci];
-      const meta = window.YS ? YS.sequenceMeta(l, c, type) : { type: type || null };
+      const meta = window.SALES ? SALES.seqMeta(l, c, type) : (window.YS ? YS.sequenceMeta(l, c, type) : { type: type || null });
       const r = YO.startSequence(l, ci, new Date(), meta.type, meta);
       if (r === 'no_email') return warn('Add an email address or a profile link for this person first.');
       if (r === 'dnc') return warn('This person is marked do-not-contact.');
@@ -504,7 +510,7 @@
   function impCompute() {
     const mapped = YO.applyMapping(imp.rows, imp.mapping);
     const brand = imp.brand || 'yalo';
-    return YO.buildImport(mapped, leads, { now: new Date(), startSequences: imp.start, fileName: imp.name, dnc: dncSet(), owner: settings.name || 'Unassigned', brand, sequenceMeta: window.YS ? (l, ci) => YS.sequenceMeta(l, l.contacts[ci]) : null });
+    return YO.buildImport(mapped, leads, { now: new Date(), startSequences: imp.start, fileName: imp.name, dnc: dncSet(), owner: settings.name || 'Unassigned', brand, sequenceMeta: window.SALES ? SALES.importMeta() : (window.YS ? (l, ci) => YS.sequenceMeta(l, l.contacts[ci]) : null) });
   }
 
   function renderImport() {

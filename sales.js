@@ -169,6 +169,9 @@
   }
   const SALESAPI = window.SALES = {
     setBrand, profileFor, activeBrandOrDefault,
+    // shared with workspace.js (templates, tasks, daily plan)
+    anyLead: id => store.allLeads.find(l => l.id === id), allLeads: () => store.allLeads, allActs: () => store.allActs,
+    util: { ai, createTask, copyText, openSheet, closeSheet, profiles, sender, hasKey, needKey, aiBlock: text => aiBlock(text), activeBrand: () => activeBrand },
     async loadModels() {
       const key = ($('sf-groq') || {}).value || ''; const msg = $('sf-model-msg');
       if (!key.trim()) return warn('Paste your Groq key first.');

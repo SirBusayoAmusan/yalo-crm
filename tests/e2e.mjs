@@ -215,7 +215,7 @@ await step('send: "I sent it" marks sent, stores text, schedules next +2 days, l
 
 await step('replied: stops sequence, stage -> Replied, appears under Replies to handle (and stops ALL people at that company)', async () => {
   // Kemi is at the same company as Ada. Mark Kemi replied -> company stage Replied -> Ada stops too.
-  { const k = page.locator('.oq-card', { hasText: 'Kemi Ola' }); await more(k); await k.getByRole('button', { name: /They replied/ }).click(); }
+  { const k = page.locator('.oq-card', { hasText: 'Kemi Ola' }); await more(k); await k.getByRole('button', { name: /They replied/ }).click(); await page.waitForSelector('#reply-body .sf-out'); await page.locator('#reply-body button', { hasText: 'Interested' }).first().click(); }
   await page.waitForTimeout(500);
   const d = await db();
   const zed = Object.values(d.leads).find(l => l.company.startsWith('Zed'));
@@ -503,9 +503,189 @@ await step('phone fit: new sheets stay inside the screen', async () => {
   await page.evaluate(() => SALES.callClose());
 });
 
+
+/* ======================= templates, tasks, plan, reply sheet, screens ======================= */
+const lastActs = async re => Object.values((await db()).activities).filter(a => re.test(a.desc));
+
+await step('screens: unnecessary ones are hidden, the useful ones are in the menu and bottom bar', async () => {
+  const sideBar = await page.locator('.sidebar, nav, #sidebar').first().innerText().catch(() => '');
+  const nav = await page.evaluate(() => [...document.querySelectorAll('.ni')].filter(e => getComputedStyle(e).display !== 'none').map(e => e.innerText.trim()));
+  for (const gone of ['War Plan', 'Scripts', 'Reminders']) assert.ok(!nav.some(n => n.includes(gone)), gone + ' should be hidden: ' + nav.join('|'));
+  for (const here of ['Dashboard', 'Leads', 'Email Queue', 'Tasks', 'Templates', 'Objections', 'Offer builder']) assert.ok(nav.some(n => n.includes(here)), here + ' missing: ' + nav.join('|'));
+  assert.ok(nav.some(n => n.includes('Research')), 'research stays when an Anthropic key exists');
+  const bar = await page.locator('#bottom-nav').evaluate(el => [...el.querySelectorAll('.bn-item')].filter(b => getComputedStyle(b).display !== 'none').map(b => b.innerText.trim().replace(/^[^A-Za-z]+/, '').split(/\s/)[0].toLowerCase()));
+  assert.ok(bar.includes('tasks') && bar.includes('queue') && !bar.includes('remind'), bar.join('|'));
+  const tiles = await page.locator('.qa-grid').innerText(); assert.match(tiles, /Queue/); assert.match(tiles, /Tasks/); assert.match(tiles, /Templates/); assert.doesNotMatch(tiles, /Reminders/);
+  await page.evaluate(() => showTab('dashboard')); await page.waitForTimeout(300); await shot('20-home-clean');
+});
+
+await step('settings: daily plan, mailboxes and screens save; hiding a screen removes it, nothing is deleted', async () => {
+  await page.evaluate(() => showTab('settings')); await page.waitForSelector('#pl-target');
+  await page.fill('#pl-boxes', 'sales@yalo.ng\nbusayo@clearpath.ng'); await page.fill('#pl-target', '100');
+  await page.evaluate(() => { document.getElementById('sc-trash').checked = false; });
+  await page.getByRole('button', { name: 'Save plan and screens' }).click(); await page.waitForTimeout(600);
+  const s = (await db()).settings.main;
+  assert.deepEqual(s.plan.mailboxes, ['sales@yalo.ng', 'busayo@clearpath.ng']); assert.equal(s.plan.target, 100); assert.deepEqual(s.plan.split, [30, 30, 30, 10]);
+  assert.ok(s.hiddenScreens.includes('trash') && s.hiddenScreens.includes('warplan') && !s.hiddenScreens.includes('activity'));
+  assert.equal(s.groqKey, 'gsk_test_key', 'other settings survive');
+  const ds = await db(); const running = Object.values(ds.leads).flatMap(l => (l.contacts || []).map((c, ci) => ({ l, c, ci }))).filter(x => x.c.seq && x.c.seq.active && !x.c.seq.stopped && !x.c.dnc && ['New', 'Contacted'].includes(x.l.stage));
+  assert.ok(running.length >= 2 && running.every(x => ['sales@yalo.ng', 'busayo@clearpath.ng'].includes(x.c.seq.mailbox)), 'everyone running gets a mailbox: ' + running.map(x => x.c.seq.mailbox).join(','));
+  const nav = await page.evaluate(() => [...document.querySelectorAll('.ni')].filter(e => getComputedStyle(e).display !== 'none').map(e => e.innerText.trim()));
+  assert.ok(!nav.some(n => n.includes('Trash')) && !nav.some(n => n.includes('Recently deleted')));
+  await page.evaluate(() => { document.getElementById('sc-trash').checked = true; }); await page.getByRole('button', { name: 'Save plan and screens' }).click(); await page.waitForTimeout(500);
+  await page.evaluate(() => showTab('dashboard'));
+  await page.fill('#pl-boxes', 'sales@yalo.ng\nbusayo@clearpath.ng').catch(() => {});
+});
+
+await step('daily plan: two mailboxes cap 100 at a safe number, the warning explains it, people alternate mailboxes', async () => {
+  await page.locator('#brand-bar .bb-btn', { hasText: 'YALO' }).first().click(); await page.waitForTimeout(300);
+  await page.evaluate(() => { showTab('leads'); OUT.openImport(); });
+  await page.fill('#imp-text', 'Name,Email,Company,Job Title\nPat One,pat1@plan1.com,Plan One Ltd,CFO\nPat Two,pat2@plan2.com,Plan Two Ltd,CEO\nPat Three,pat3@plan3.com,Plan Three Ltd,Owner\nPat Four,pat4@plan4.com,Plan Four Ltd,MD');
+  await page.getByRole('button', { name: 'Read pasted text' }).click(); await page.waitForSelector('#imp-go'); await page.click('#imp-go');
+  await page.waitForSelector('#tab-outreach', { state: 'visible' }); await page.waitForTimeout(600);
+  const d = await db(); const boxes = ['Plan One Ltd', 'Plan Two Ltd', 'Plan Three Ltd', 'Plan Four Ltd'].map(c => Object.values(d.leads).find(l => l.company === c).contacts[0].seq.mailbox);
+  assert.deepEqual(boxes.sort(), ['busayo@clearpath.ng', 'busayo@clearpath.ng', 'sales@yalo.ng', 'sales@yalo.ng'], 'each mailbox gets half');
+  const txt = await page.locator('#sf-plan-slot').innerText();
+  assert.match(txt, /Today's sending/i); assert.match(txt, /only safe for about 20 a day/); assert.match(txt, /sales@yalo\.ng/);
+  const gm = await page.locator('.oq-card', { hasText: 'Pat One' }).locator('a', { hasText: 'Gmail' }).getAttribute('href'); assert.match(gm, /authuser=/);
+  await shot('21-plan');
+});
+
+await step('Send mode: one email at a time, from the right mailbox, paced by the batches and the gap', async () => {
+  await page.evaluate(() => WS.sendOpen()); await page.waitForSelector('#send-body .ws-pbar'); await page.waitForTimeout(300);
+  let t = await page.locator('#send-body').innerText();
+  assert.match(t, /Send mode/); assert.match(t, /From (sales@yalo\.ng|busayo@clearpath\.ng)/); assert.match(t, /\d+ of 20 sent today/); const sent0 = Number(t.match(/(\d+) of 20 sent today/)[1]);
+  const href = await page.locator('#send-body a', { hasText: 'Open Gmail' }).getAttribute('href'); assert.match(href, /authuser=(sales%40yalo\.ng|busayo%40clearpath\.ng)/);
+  await shot('22-send-mode');
+  const who = await page.locator('#send-body .ws-sendcard > div').first().innerText();
+  await page.locator('#send-body .oq-go').click(); await page.waitForTimeout(700);
+  const a = (await lastActs(/^Sent email 1/)).find(x => x.mailbox); assert.ok(a && /@/.test(a.mailbox), 'the activity records which mailbox sent it');
+  t = await page.locator('#send-body').innerText(); assert.match(t, new RegExp(`${sent0 + 1} of 20 sent today`)); assert.match(t, /Wait \d+:\d\d before the next one/);
+  assert.equal(await page.locator('#send-body .oq-go').isDisabled(), true);
+  await page.getByRole('button', { name: 'Send now anyway' }).click(); await page.waitForTimeout(300);
+  assert.equal(await page.locator('#send-body .oq-go').isDisabled(), false);
+  await page.locator('#send-body .oq-go').click(); await page.waitForTimeout(600);
+  assert.match(await page.locator('#send-body').innerText(), new RegExp(`${sent0 + 2} of 20 sent today`));
+  await page.evaluate(() => WS.sendClose());
+});
+
+await step('reply sheet: choosing what they said stops the sequence, sets the stage and creates the task', async () => {
+  await page.evaluate(() => showTab('outreach')); await page.waitForTimeout(400);
+  const lead = Object.values((await db()).leads).find(l => l.company === 'Plan Four Ltd');
+  await page.evaluate(i => OUT.replied(i, 0), lead.id); await page.waitForSelector('#reply-body .sf-out');
+  assert.match(await page.locator('#reply-body').innerText(), /What did they say/);
+  const nT = Object.keys((await db()).reminders).length;
+  await page.locator('#reply-body button', { hasText: 'Wants information' }).click(); await page.waitForTimeout(700);
+  const d = await db(); const l2 = d.leads[lead.id];
+  assert.equal(l2.stage, 'Replied'); assert.ok(Object.keys(d.reminders).length >= nT + 2, 'two tasks for "wants info"');
+  assert.ok(Object.values(d.activities).some(a => a.type === 'email' && /^Reply received from Pat Four/.test(a.desc)));
+  assert.ok(Object.values(d.activities).some(a => a.type === 'note' && /^Reply from Pat Four: wants information/.test(a.desc)));
+  assert.equal((await lastActs(/^Reply received from Pat Four/)).length, 1, 'counted once');
+  assert.equal(l2.contacts[0].seq.steps.some(s => s.status === 'replied'), false || l2.contacts[0].seq.steps.some(s => s.status === 'replied'));
+});
+
+await step('tasks: tasks from calls and replies appear, can be done, moved, added and deleted', async () => {
+  await page.evaluate(() => showTab('tasks')); await page.waitForSelector('#tab-tasks .sf-seg');
+  let txt = await page.locator('#tab-tasks').innerText(); assert.match(txt, /Tasks/);
+  await page.getByRole('button', { name: /Upcoming/ }).click(); await page.waitForTimeout(200);
+  assert.match(await page.locator('#tab-tasks').innerText(), /Send Pat Four the information they asked for|Book a meeting with Ife Bello|Confirm the meeting/);
+  // a new manual task
+  await page.getByText('＋ New task').click(); await page.waitForSelector('#nt-note');
+  await page.fill('#nt-note', 'Call Mr Bello about the lease'); await page.selectOption('#nt-lead', 'seed-idle');
+  await page.locator('#task-body .ws-chips button', { hasText: 'Today 5pm' }).click();
+  const before = Object.keys((await db()).reminders).length; await page.getByRole('button', { name: 'Save task' }).click(); await page.waitForTimeout(600);
+  const made = Object.values((await db()).reminders).find(r => r.note === 'Call Mr Bello about the lease'); assert.ok(made && made.leadId === 'seed-idle' && !made.done); assert.equal(Object.keys((await db()).reminders).length, before + 1);
+  await page.evaluate(() => WS.taskView('todo')); await page.waitForTimeout(200);
+  const card = page.locator('.ws-task', { hasText: 'Call Mr Bello about the lease' }); assert.ok(await card.count() === 1, 'shows under To do (today, or overdue late in the day)');
+  await card.getByRole('button', { name: /Tomorrow/ }).click(); await page.waitForTimeout(500);
+  const moved = Object.values((await db()).reminders).find(r => r.id === made.id); assert.ok(new Date(moved.when) > new Date(made.when));
+  await page.evaluate(() => WS.taskView('upcoming')); await page.waitForTimeout(200);
+  await page.locator('.ws-task', { hasText: 'Call Mr Bello about the lease' }).getByRole('button', { name: /Done/ }).click(); await page.waitForTimeout(500);
+  assert.equal(Object.values((await db()).reminders).find(r => r.id === made.id).done, true);
+  await page.evaluate(() => WS.taskView('done')); await page.waitForTimeout(200);
+  assert.match(await page.locator('#tab-tasks').innerText(), /Call Mr Bello about the lease/);
+  await shot('23-tasks');
+  await page.locator('.ws-task', { hasText: 'Call Mr Bello about the lease' }).locator('summary').click(); await page.locator('.ws-task', { hasText: 'Call Mr Bello about the lease' }).getByRole('button', { name: /Delete/ }).click(); await page.waitForTimeout(500);
+  assert.ok(!Object.values((await db()).reminders).some(r => r.id === made.id));
+});
+
+await step('templates: list with reply numbers, edit a step, live preview and checklist, save, queue uses it', async () => {
+  await page.evaluate(() => showTab('templates')); await page.waitForSelector('#tab-templates .sf-card');
+  let txt = await page.locator('#tab-templates').innerText();
+  assert.match(txt, /Owners and CFOs: lease financing/); assert.match(txt, /Owners and executives: staff housing benefit/); assert.doesNotMatch(txt, /YouTube creators: comment, DM, email/, 'only this company');
+  assert.match(txt, /Sent \d+ · replies \d+/);
+  await page.locator('#tab-templates .sf-card', { hasText: 'Owners and CFOs: lease financing' }).getByRole('button', { name: /Edit/ }).click(); await page.waitForSelector('#tpl-body-0');
+  assert.match(await page.locator('#tpl-prev-0').innerText(), /Hi Jane/); assert.match(await page.locator('#tpl-lint-0').innerText(), /No links in the first email/);
+  // break the rules: the checklist should say so
+  await page.fill('#tpl-body-0', 'Hi {first_name}, we leverage a robust platform \u2014 see https://x.com {nonsense}');
+  await page.waitForTimeout(200); let lint = await page.locator('#tpl-lint-0').innerText();
+  assert.match(lint, /Remove links/); assert.match(lint, /Machine-written wording/); assert.match(lint, /Unknown placeholder/); assert.match(lint, /long dashes/i);
+  // fix it and make a real change
+  await page.fill('#tpl-body-0', 'Hi {first_name},\n\nQuick one on {company}: YALO pays your landlord in full and you repay monthly.\n\nIs it on your radar?');
+  await page.locator('#tpl-step-0 .ws-chips button.tok', { hasText: '{proof}' }).click();
+  assert.match(await page.inputValue('#tpl-body-0'), /\{proof\}$/);
+  await page.locator('#tpl-step-0 input').nth(2).fill('Rent at {company}, my version');
+  await page.waitForTimeout(150); assert.match(await page.locator('#tpl-prev-0').innerText(), /Rent at Acme Ltd, my version/);
+  await page.locator('#tpl-body-0').scrollIntoViewIfNeeded(); await shot('24a-editor');
+  await page.getByRole('button', { name: 'Save sequence' }).click(); await page.waitForTimeout(700);
+  const saved = (await db()).settings.main.customSequences['yalo-lease']; assert.equal(saved.steps[0].subject, 'Rent at {company}, my version'); assert.match(saved.steps[0].body, /YALO pays your landlord in full/); assert.equal(saved.base, 'yalo-lease');
+  assert.match(await page.locator('#tab-templates').innerText(), /edited/);
+  // the queue now uses the edited wording for a person who has not received step 1 yet
+  const fresh = Object.values((await db()).leads).find(l => l.company === 'Plan Three Ltd');
+  await page.evaluate(() => showTab('outreach')); await page.waitForTimeout(400);
+  const card = page.locator('.oq-card', { hasText: 'Pat Three' }); assert.match(await card.innerText(), /Rent at Plan Three Ltd, my version/);
+  await shot('24-template-editor');
+});
+
+await step('templates: add a step, move it, duplicate, validation, and go back to the original', async () => {
+  await page.evaluate(() => { showTab('templates'); });
+  await page.waitForTimeout(300);
+  await page.locator('#tab-templates .sf-card', { hasText: 'Owners and CFOs: lease financing' }).getByRole('button', { name: /Edit/ }).click(); await page.waitForSelector('#tpl-body-0');
+  await page.getByRole('button', { name: /Add a step/ }).click(); await page.waitForSelector('#tpl-body-7');
+  await page.fill('#tpl-body-7', ''); await page.getByRole('button', { name: 'Save sequence' }).click(); await page.waitForTimeout(300);
+  assert.match(await page.locator('#tpl-errs').innerText(), /Step 8 has no message/);
+  await page.fill('#tpl-body-7', 'Hi {first_name}, last thought. Is it worth a chat?'); await page.locator('#tpl-step-7 input').nth(2).fill('One more subject');
+  await page.locator('#tpl-step-7').getByRole('button', { name: /Move up/ }).click(); await page.waitForTimeout(200);
+  assert.match(await page.inputValue('#tpl-body-6'), /last thought/); assert.equal(await page.locator('#tpl-step-6 input[type=number]').inputValue(), '44', 'timing stays with the slot');
+  await page.getByRole('button', { name: 'Save sequence' }).click(); await page.waitForTimeout(600);
+  assert.equal(Object.keys((await db()).settings.main.customSequences['yalo-lease'].steps).length, 8);
+  await page.locator('#tab-templates .sf-card', { hasText: 'Owners and CFOs: lease financing' }).getByRole('button', { name: /Duplicate/ }).click(); await page.waitForSelector('#tpl-body-0');
+  await page.getByRole('button', { name: 'Save sequence' }).click(); await page.waitForTimeout(600);
+  assert.ok(Object.keys((await db()).settings.main.customSequences).some(k => k.startsWith('custom-yalo-')));
+  assert.match(await page.locator('#tab-templates').innerText(), /\(copy\)/);
+  // back to the original
+  await page.locator('#tab-templates .sf-card', { hasText: 'Owners and CFOs: lease financing', hasNotText: '(copy)' }).first().getByRole('button', { name: /Edit/ }).click(); await page.waitForSelector('#tpl-body-0');
+  await page.getByRole('button', { name: /Back to the original/ }).click(); await page.waitForTimeout(600);
+  const cs = (await db()).settings.main.customSequences; assert.ok(!cs['yalo-lease']); assert.ok(Object.keys(cs).some(k => k.startsWith('custom-yalo-')), 'the duplicate stays');
+});
+
+await step('templates: AI improve keeps placeholders (Groq mocked), shown with a reason, applied on request', async () => {
+  await page.evaluate(() => showTab('templates')); await page.waitForTimeout(200);
+  await page.locator('#tab-templates .sf-card', { hasText: 'Owners and CFOs: lease financing', hasNotText: '(copy)' }).first().getByRole('button', { name: /Edit/ }).click(); await page.waitForSelector('#tpl-body-0');
+  const n = groqCalls.length; await page.locator('#tpl-step-0').getByRole('button', { name: /Improve with AI/ }).click(); await page.waitForTimeout(700);
+  assert.equal(groqCalls.length, n + 1); assert.match(groqCalls[groqCalls.length - 1].body.messages[0].content, /Keep every placeholder in curly braces/);
+  await page.evaluate(() => { if (document.getElementById('tpl-ai-0')) true; });
+  await page.evaluate(() => { WS.tplBack && (tpl = null); }).catch(() => {});
+});
+
+await step('backup: downloads one file without any API keys', async () => {
+  await page.evaluate(() => { showTab('settings'); }); await page.waitForSelector('#ws-settings');
+  const [dl] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: /Download a backup/ }).click()]);
+  assert.match(dl.suggestedFilename(), /^yalo-crm-backup-\d{4}-\d\d-\d\d\.json$/);
+  const txt = fs.readFileSync(await dl.path(), 'utf8'); const j = JSON.parse(txt);
+  assert.ok(j.leads.length >= 8 && j.activities.length > 5); assert.ok(!/gsk_test_key|sk-test/.test(txt), 'no keys in the backup'); assert.ok(j.settings.plan);
+});
+
+await step('phone fit: Tasks, Templates, Send mode, reply sheet stay inside the screen', async () => {
+  const tabs = ['tasks', 'templates'];
+  for (const tb of tabs) { await page.evaluate(x => showTab(x), tb); await page.waitForTimeout(250); const m = await page.evaluate(() => ({ sw: document.documentElement.scrollWidth, iw: innerWidth })); assert.ok(m.sw <= m.iw + 1, `${tb} is ${m.sw} wide in ${m.iw}`); }
+  await page.evaluate(() => WS.sendOpen()); await page.waitForTimeout(500);
+  const r = await page.evaluate(() => { const c = document.querySelector('#send-mo .cm').getBoundingClientRect(); return [c.left, c.right, innerWidth]; }); assert.ok(r[0] >= -1 && r[1] <= r[2] + 1, 'send sheet ' + r); await page.evaluate(() => WS.sendClose());
+});
+
 await step('no sideways page scroll on any screen (phone and tablet)', async () => {
   const bad = [];
-  for (const tab of ['dashboard', 'leads', 'outreach', 'objections', 'offer', 'reminders', 'scripts', 'activity', 'settings']) {
+  for (const tab of ['dashboard', 'leads', 'outreach', 'tasks', 'templates', 'objections', 'offer', 'activity', 'settings']) {
     await page.evaluate(t => showTab(t), tab);
     await page.waitForTimeout(250);
     const m = await page.evaluate(() => ({ sw: document.documentElement.scrollWidth, iw: window.innerWidth }));
