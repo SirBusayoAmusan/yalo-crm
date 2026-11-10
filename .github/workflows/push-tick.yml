@@ -1,0 +1,15 @@
+# Wakes the push server every few minutes so due notifications are sent even when nobody has the app open.
+# (GitHub may start scheduled runs a few minutes late; that is normal.)
+name: Push tick
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+permissions: {}
+jobs:
+  tick:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Ask the server to send anything that is due
+        run: curl -fsS --retry 3 --retry-delay 5 --max-time 40 "https://yalotechnologies-crm.vercel.app/api/push/tick"

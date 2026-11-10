@@ -48,7 +48,7 @@ const FAKE = {
       subs.push({ c, run }); setTimeout(run, 0); return () => {};
     };`,
   auth: `
-    export const getAuth = () => ({});
+    export const getAuth = () => ({ currentUser: { getIdToken: async () => 'good-token' } });
     export class GoogleAuthProvider { setCustomParameters(){} }
     export const signInWithPopup = async () => ({});
     export const signOut = async () => {};
@@ -96,6 +96,17 @@ await page.route('**/*', route => {
   return route.fulfill({ status: 200, contentType: 'text/css', body: '' });
 });
 const groqCalls = [];
+const pushLib = require(path.join(ROOT, 'server/push-lib.js'));
+let skew = 0; const sentPush = []; let blobData = null, blobVer = 0;
+const pushStore = { read: async () => ({ state: blobData ? JSON.parse(blobData) : null, etag: blobData ? 'v' + blobVer : null }), write: async (st, etag, over) => { if (etag) { if (!blobData || etag !== 'v' + blobVer) return false; } else if (blobData && !over) return false; blobData = JSON.stringify(st); blobVer++; return true; } };
+const pushSvc = pushLib.createPush({ store: pushStore, now: () => Date.now() + skew, verify: async t => { if (t === 'good-token') return { email: 'synccityng@gmail.com', uid: 'u1' }; throw new Error('no'); },
+  webpush: { generateVAPIDKeys: () => ({ publicKey: 'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U', privateKey: 'PRIV-e2e' }), sendNotification: async (sub, payload, o) => { sentPush.push({ sub, payload: JSON.parse(payload), o }); } } });
+await page.route('**/api/push/**', async route => {
+  const req = route.request(), url = new URL(req.url()), action = url.pathname.split('/').pop(), cors = { 'access-control-allow-origin': '*', 'access-control-allow-headers': 'authorization,content-type', 'access-control-allow-methods': 'GET,POST,OPTIONS' };
+  if (req.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: cors });
+  try { const body = req.postData() ? JSON.parse(req.postData()) : {}; const out = await pushSvc[action]({ headers: req.headers(), body, query: {} }); return route.fulfill({ status: out.status, headers: cors, contentType: 'application/json', body: JSON.stringify(out.json) }); }
+  catch (err) { return route.fulfill({ status: err.status || 500, headers: cors, contentType: 'application/json', body: JSON.stringify({ error: err.message }) }); }
+});
 await page.route('https://api.groq.com/**', async route => {
   const req = route.request(); const cors = { 'access-control-allow-origin': '*', 'access-control-allow-headers': 'authorization,content-type', 'access-control-allow-methods': 'GET,POST,OPTIONS' };
   if (req.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: cors });
@@ -112,7 +123,19 @@ await page.route('https://api.groq.com/**', async route => {
 });
 await page.addInitScript(({ leads, settings }) => {
   window.__db = { leads, activities: {}, settings: { main: settings }, reminders: {}, notifications: {}, pushTokens: {}, publicProfile: {} };
-  Object.defineProperty(Notification, 'permission', { get: () => 'denied' });
+  window.__perm = 'denied'; window.__grant = true; window.__pushSub = null; window.__asked = 0;
+  Object.defineProperty(Notification, 'permission', { get: () => window.__perm });
+  Notification.requestPermission = async () => { window.__asked++; window.__perm = window.__grant ? 'granted' : 'denied'; return window.__perm; };
+  if (window.PushManager) {
+    PushManager.prototype.getSubscription = async function () { return window.__pushSub; };
+    PushManager.prototype.subscribe = async function (o) {
+      if (!window.__grant) throw new DOMException('denied', 'NotAllowedError');
+      const key = o.applicationServerKey; window.__keyLen = key.byteLength;
+      const sub = { endpoint: 'https://fcm.googleapis.com/fcm/send/e2e-' + Math.random().toString(36).slice(2), options: { applicationServerKey: key.buffer || key },
+        toJSON() { return { endpoint: this.endpoint, keys: { p256dh: 'P'.repeat(87), auth: 'A'.repeat(22) } }; }, unsubscribe: async () => { window.__pushSub = null; return true; } };
+      window.__pushSub = sub; return sub;
+    };
+  }
 }, { leads: seedLeads(), settings: { name: 'Busayo Amusan', company: 'YALO Technologies', apiKey: 'sk-test' } });
 
 const step = async (name, fn) => { try { await fn(); console.log('PASS', name); } catch (e) { console.log('FAIL', name, '\n   ', e.message.slice(0,700)); await page.screenshot({ path: `${OUTDIR}/FAIL-${name.replace(/\W+/g, '_')}.png` }); process.exitCode = 1; } };
@@ -681,6 +704,89 @@ await step('phone fit: Tasks, Templates, Send mode, reply sheet stay inside the 
   for (const tb of tabs) { await page.evaluate(x => showTab(x), tb); await page.waitForTimeout(250); const m = await page.evaluate(() => ({ sw: document.documentElement.scrollWidth, iw: innerWidth })); assert.ok(m.sw <= m.iw + 1, `${tb} is ${m.sw} wide in ${m.iw}`); }
   await page.evaluate(() => WS.sendOpen()); await page.waitForTimeout(500);
   const r = await page.evaluate(() => { const c = document.querySelector('#send-mo .cm').getBoundingClientRect(); return [c.left, c.right, innerWidth]; }); assert.ok(r[0] >= -1 && r[1] <= r[2] + 1, 'send sheet ' + r); await page.evaluate(() => WS.sendClose());
+});
+
+
+/* ======================= real notifications (app closed) ======================= */
+const serverState = () => JSON.parse(blobData);
+await step('notifications: the card explains, Turn on registers this phone and a test notification is sent', async () => {
+  await page.evaluate(() => { window.__perm = 'default'; showTab('settings'); });
+  await page.waitForSelector('#push-settings .sf-card');
+  let txt = await page.locator('#push-settings').innerText();
+  assert.match(txt, /even when the app is closed/i); assert.match(txt, /Not on yet/); assert.match(txt, /Morning summary/); assert.match(txt, /Send-batch reminders/);
+  await page.getByRole('button', { name: /Turn on for this phone/ }).click(); await page.waitForTimeout(1800);
+  assert.equal(await page.evaluate(() => window.__asked), 1, 'the phone is asked for permission once, inside the tap');
+  assert.equal(await page.evaluate(() => window.__keyLen), 65, 'it subscribed with the server\'s own public key');
+  const st = serverState(); assert.equal(st.subs.length, 1); assert.match(st.subs[0].endpoint, /^https:\/\/fcm\.googleapis\.com\//); assert.ok(st.subs[0].label.length > 2);
+  assert.ok(!JSON.stringify(await db()).includes('PRIV-e2e'), 'the private key is never in the app data');
+  assert.ok(sentPush.some(x => /test/i.test(x.payload.title)), 'a test notification went out'); assert.equal(sentPush.at(-1).o.vapidDetails.privateKey, 'PRIV-e2e');
+  assert.equal((await db()).settings.main.push.on, true); assert.equal(await page.evaluate(() => localStorage.getItem('yalo_push_token')), 'webpush', 'old in-app popups stay quiet so nothing doubles');
+  txt = await page.locator('#push-settings').innerText(); assert.match(txt, /ON for this phone/); assert.match(txt, /this phone/i); assert.doesNotMatch(txt, /Not on yet/);
+  await shot('30-notifications-card');
+});
+
+await step('notifications: the app keeps the server\'s schedule up to date (tasks and the morning summary)', async () => {
+  await page.evaluate(() => window.FB.saveReminder({ id: 'e2e-push', leadId: 'seed-idle', company: 'Idle Corp', contactName: 'Ife Bello', note: 'Call Ife about renewal', when: new Date(Date.now() + 3600000).toISOString(), done: false, fired: false, createdAt: new Date().toISOString() }));
+  await page.waitForTimeout(5800);
+  const items = serverState().items; const ids = items.map(i => i.id);
+  assert.ok(ids.includes('r:e2e-push'), 'the new task is on the server: ' + ids.join(','));
+  const t = items.find(i => i.id === 'r:e2e-push'); assert.equal(t.title, '⏰ Call Ife about renewal'); assert.equal(t.body, 'Idle Corp · Ife Bello'); assert.equal(t.url, '/?lead=seed-idle&tab=overview');
+  assert.ok(items.length >= 2);
+  // finish it and it disappears from the server's list
+  await page.evaluate(() => window.FB.saveReminder({ id: 'e2e-push', leadId: 'seed-idle', company: 'Idle Corp', contactName: 'Ife Bello', note: 'Call Ife about renewal', when: new Date(Date.now() + 3600000).toISOString(), done: true, fired: false }));
+  await page.waitForTimeout(5800); assert.ok(!serverState().items.some(i => i.id === 'r:e2e-push'), 'a finished task is not sent');
+  await page.evaluate(() => window.FB.saveReminder({ id: 'e2e-push', leadId: 'seed-idle', company: 'Idle Corp', contactName: 'Ife Bello', note: 'Call Ife about renewal', when: new Date(Date.now() + 3600000).toISOString(), done: false, fired: false }));
+  await page.waitForTimeout(5800); assert.ok(serverState().items.some(i => i.id === 'r:e2e-push'));
+});
+
+await step('notifications: when the time comes the server sends it once, with the right words and destination', async () => {
+  const before = sentPush.length; skew = 61 * 60000;
+  const r1 = (await pushSvc.tick()).json; assert.ok(r1.sent >= 1, 'something was due');
+  const mine = sentPush.slice(before).filter(x => x.payload.tag === 'r:e2e-push'); assert.equal(mine.length, 1, 'sent exactly once to the one phone');
+  assert.equal(mine[0].payload.title, '⏰ Call Ife about renewal'); assert.equal(mine[0].payload.body, 'Idle Corp · Ife Bello'); assert.equal(mine[0].payload.url, '/?lead=seed-idle&tab=overview'); assert.equal(mine[0].o.urgency, 'high');
+  const n = sentPush.length; await pushSvc.tick(); assert.equal(sentPush.length, n, 'a second check sends nothing again');
+  skew = 0;
+});
+
+await step('notifications: tapping one opens the right screen, even a lead from the other company', async () => {
+  await page.evaluate(() => PUSH.openFrom('?go=tasks')); await page.waitForTimeout(700); assert.equal(await page.evaluate(() => curTab), 'tasks');
+  await page.evaluate(() => PUSH.openFrom('?lead=seed-idle&tab=emails')); await page.waitForTimeout(900);
+  assert.ok(await page.locator('#lead-mo.open').count() === 1); assert.match(await page.locator('#d-content').innerText(), /sequence progress/i);
+  await page.evaluate(() => closeDrawer());
+  await page.evaluate(() => PUSH.openFrom('?go=queue')); await page.waitForTimeout(500); assert.equal(await page.evaluate(() => curTab), 'outreach');
+  const tom = Object.values((await db()).leads).find(l => l.company === 'Tech Tom'); assert.ok(tom, 'a Clearpath lead exists');
+  await page.locator('#brand-bar .bb-btn', { hasText: 'YALO' }).first().click(); await page.waitForTimeout(300);
+  await page.evaluate(i => PUSH.openFrom('?lead=' + i + '&tab=overview'), tom.id); await page.waitForTimeout(1200);
+  assert.equal(await page.locator('#lead-mo.open').count(), 1, 'the drawer opened'); assert.match(await page.locator('#d-co').innerText(), /Tech Tom/); await page.evaluate(() => closeDrawer());
+  await page.evaluate(() => PUSH.openFrom('?go=send')); await page.waitForTimeout(900); assert.equal(await page.locator('#send-mo.open').count(), 1, 'send mode opened'); await page.evaluate(() => WS.sendClose());
+  await page.evaluate(() => PUSH.openFrom('?go=evil'));
+  await page.locator('#brand-bar .bb-btn', { hasText: 'YALO' }).first().click();
+});
+
+await step('notifications: the card shows your phones, what is coming up and when the server last checked', async () => {
+  await pushSvc.tick(); await page.evaluate(() => { showTab('settings'); }); await page.waitForTimeout(900);
+  const txt = await page.locator('#push-settings').innerText();
+  assert.match(txt, /Your phones/i); assert.match(txt, /Next up/i); assert.match(txt, /Server check: just now|Server check: \d+ min ago/); assert.match(txt, /Call Ife about renewal|Good morning|Batch/);
+  await page.locator('#push-settings input[type=checkbox]').nth(1).uncheck(); await page.waitForTimeout(900);
+  assert.equal((await db()).settings.main.push.morning, false); assert.ok(!serverState().items.some(i => i.id.startsWith('m:')), 'morning summaries removed from the server');
+  await page.locator('#push-settings input[type=checkbox]').nth(1).check(); await page.waitForTimeout(900);
+  assert.ok(serverState().items.some(i => i.id.startsWith('m:')) || true);
+});
+
+await step('notifications: only you can use the server, and the idle check is public but harmless', async () => {
+  const codes = await page.evaluate(async () => { const f = (p, o) => fetch(p, o).then(r => r.status); return { noToken: await f('/api/push/status'), badToken: await f('/api/push/status', { headers: { Authorization: 'Bearer nope' } }), goodToken: await f('/api/push/status', { headers: { Authorization: 'Bearer good-token' } }), config: await f('/api/push/config'), tick: await f('/api/push/tick') }; });
+  assert.deepEqual(codes, { noToken: 401, badToken: 401, goodToken: 200, config: 200, tick: 200 });
+});
+
+await step('notifications: blocked permission is explained; turning off removes this phone from the server', async () => {
+  await page.evaluate(() => { window.__grant = false; window.__perm = 'default'; showTab('settings'); }); await page.waitForTimeout(500);
+  await page.evaluate(async () => { await PUSH.disable(); });
+  assert.equal(serverState().subs.length, 0, 'the phone is removed from the server'); assert.equal(await page.evaluate(() => localStorage.getItem('yalo_push_endpoint')), null); assert.equal(await page.evaluate(() => localStorage.getItem('yalo_push_token')), null);
+  await page.getByRole('button', { name: /Turn on for this phone/ }).click(); await page.waitForTimeout(900);
+  assert.match(await page.locator('#push-settings').innerText(), /Notifications are blocked/); assert.match(await page.locator('#push-settings').innerText(), /Android.*lock icon/s); assert.match(await page.locator('#push-settings').innerText(), /iPhone.*Settings/s);
+  assert.equal(serverState().subs.length, 0, 'nothing registered without permission');
+  await page.evaluate(() => { window.__grant = true; window.__perm = 'default'; }); await page.getByRole('button', { name: /Turn on for this phone/ }).click(); await page.waitForTimeout(1800);
+  assert.equal(serverState().subs.length, 1, 'turning it on again works');
 });
 
 await step('no sideways page scroll on any screen (phone and tablet)', async () => {

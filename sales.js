@@ -170,7 +170,9 @@
   const SALESAPI = window.SALES = {
     setBrand, profileFor, activeBrandOrDefault,
     // shared with workspace.js (templates, tasks, daily plan)
-    anyLead: id => store.allLeads.find(l => l.id === id), allLeads: () => store.allLeads, allActs: () => store.allActs,
+    anyLead: id => store.allLeads.find(l => l.id === id),
+    // a tapped notification may be for the other company: switch to it so the lead can be opened
+    setBrandFor: lead => { const b = YS.brandOf(lead); if (activeBrand !== 'all' && activeBrand !== b) setBrand(b); }, allLeads: () => store.allLeads, allActs: () => store.allActs,
     util: { ai, createTask, copyText, openSheet, closeSheet, profiles, sender, hasKey, needKey, aiBlock: text => aiBlock(text), activeBrand: () => activeBrand },
     async loadModels() {
       const key = ($('sf-groq') || {}).value || ''; const msg = $('sf-model-msg');
