@@ -54,16 +54,49 @@
       .oq-acts{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
       .oq-acts a.btn{text-decoration:none;display:inline-flex;align-items:center}
       .oq-h{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:22px 0 10px}
-      .oq-strip{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px}
-      .oq-stat{flex:1;min-width:88px;background:#fff;border:1px solid var(--border);border-radius:12px;padding:12px 14px}
+      .oq-strip{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-bottom:16px}
+      .oq-stat{background:#fff;border:1px solid var(--border);border-radius:12px;padding:12px 14px;min-width:0}
       .oq-stat b{display:block;font-size:20px}.oq-stat span{font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.05em}
+      .oq-primary{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px}
+      .oq-primary .btn{display:inline-flex;align-items:center;justify-content:center;text-decoration:none;min-height:40px}
+      .oq-primary .oq-go{grid-column:1 / -1}
+      .oq-more{margin-top:8px}
+      .oq-more summary{cursor:pointer;font-size:12px;font-weight:700;color:var(--muted);list-style:none;padding:8px 0;min-height:36px;display:flex;align-items:center}
+      .oq-more summary::-webkit-details-marker{display:none}
+      .oq-more summary::after{content:' ▾';margin-left:4px}
+      .oq-more[open] summary::after{content:' ▴'}
+      .oq-more-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+      .oq-more-grid .btn{display:inline-flex;align-items:center;justify-content:center;text-decoration:none;min-height:40px;white-space:nowrap}
+      .imp-row{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px}
+      .imp-row:last-child{border-bottom:none}
+      .imp-act{flex:0 0 auto;min-width:58px;text-align:center;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;padding:3px 6px;border-radius:6px;background:var(--gll);color:var(--gd)}
+      .imp-act.skip,.imp-act.blocked{background:#fee2e2;color:#b91c1c}.imp-act.same{background:#f1f5f9;color:var(--muted)}
+      .imp-txt{min-width:0;flex:1;word-break:break-word}
+      .imp-foot{display:flex;gap:8px;justify-content:space-between;flex-wrap:wrap;position:sticky;bottom:-20px;background:#fff;padding:12px 0 4px;margin-top:8px;border-top:1px solid var(--border)}
+      .oq-ver{font-size:11px;color:var(--muted);text-align:center;margin:24px 0 8px}
+      @media(max-width:768px){
+        #tab-outreach{padding-bottom:96px}
+        .oq-strip{gap:6px}
+        .oq-stat{padding:10px 4px;text-align:center}
+        .oq-stat b{font-size:19px}
+        .oq-stat span{display:block;font-size:9px;letter-spacing:.02em;line-height:1.25;margin-top:2px}
+        .oq-card{padding:12px}
+        .oq-who{min-width:0;flex-basis:100%}
+        .oq-primary .btn,.oq-more-grid .btn,.oq-acts .btn{min-height:46px;font-size:13px}
+        .oq-chip{min-height:40px}
+        #tab-outreach input,#tab-outreach textarea,#lead-mo input,#lead-mo textarea,#lead-mo select,#imp-mo input,#imp-mo textarea,#imp-mo select{font-size:16px}
+        #imp-mo{align-items:flex-end}
+        #imp-mo .cm{width:100vw;max-width:100vw;border-radius:16px 16px 0 0;max-height:94vh;padding:18px 16px 12px}
+        .imp-foot{flex-direction:column-reverse;gap:8px}
+        .imp-foot .btn{width:100%;min-height:46px}
+        .imp-foot>div{display:flex;flex-direction:column-reverse;gap:8px;width:100%}
+      }
       .oq-warn{font-size:12px;background:#fef3c7;color:#92400e;border-radius:8px;padding:8px 10px;margin:8px 0;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-      .oq-chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
-      .oq-chip{padding:6px 12px;border-radius:20px;border:1px solid var(--border);font-size:12px;font-weight:600;cursor:pointer;background:#fff;font-family:inherit}
+      .oq-chips{display:flex;gap:6px;flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;margin-bottom:12px;padding-bottom:4px}
+      .oq-chip{padding:6px 12px;border-radius:20px;border:1px solid var(--border);font-size:12px;font-weight:600;cursor:pointer;background:#fff;font-family:inherit;white-space:nowrap;flex:0 0 auto}
       .oq-chip.active{background:var(--g);color:#fff;border-color:var(--g)}
-      .imp-wrap{overflow-x:auto}.imp-tbl{width:100%;border-collapse:collapse;font-size:12px;margin-top:8px}.imp-tbl td{word-break:break-word}.imp-tbl td,.imp-tbl th{padding:5px 6px;border-bottom:1px solid var(--border);text-align:left}
       .imp-pill{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;background:var(--gll);margin-right:4px}
-      #imp-mo .cm{width:640px}`;
+      #imp-mo .cm{width:min(640px,96vw)}`;
     document.head.appendChild(style);
 
     // sidebar item (after Leads) + More sheet item
@@ -114,22 +147,22 @@
     const to = YO.normEmail(c.email);
     let actions;
     if (when === 'upcoming') actions = `<button class="btn btn-ghost btn-sm" onclick="OUT.open('${lid}',${ci})">Open</button>`;
-    else if (noEmail) actions = `<span style="font-size:12px;color:var(--muted)">No email address yet.</span> <button class="btn btn-ghost btn-sm" onclick="OUT.open('${lid}',${ci},'overview')">Add email</button>`;
-    else actions = `
-      <a class="btn btn-ghost btn-sm" target="_blank" rel="noopener" href="${esc(YO.gmail(to, f.subject, f.body))}">✉ Gmail</a>
-      <a class="btn btn-ghost btn-sm" href="${esc(YO.mailto(to, f.subject, f.body))}">📱 Mail app</a>
-      <button class="btn btn-ghost btn-sm" onclick="OUT.copy('${lid}',${ci},${idx})">📋 Copy</button>
-      <button class="btn btn-g btn-sm" onclick="OUT.sent('${lid}',${ci},${idx})">✓ I sent it</button>
-      <button class="btn btn-ghost btn-sm" onclick="OUT.open('${lid}',${ci})">✏️ Edit</button>`;
-    const extra = [];
+    else if (noEmail) actions = `<div class="oq-sub" style="margin-bottom:8px">No email address yet.</div><button class="btn btn-ghost btn-sm" onclick="OUT.open('${lid}',${ci},'overview')">Add email</button>`;
+    else actions = `<div class="oq-primary">
+        <a class="btn btn-ghost btn-sm" target="_blank" rel="noopener" href="${esc(YO.gmail(to, f.subject, f.body))}">✉ Gmail</a>
+        <a class="btn btn-ghost btn-sm" href="${esc(YO.mailto(to, f.subject, f.body))}">📱 Mail app</a>
+        <button class="btn btn-g btn-sm oq-go" onclick="OUT.sent('${lid}',${ci},${idx})">✓ I sent it</button></div>`;
+    const more = [];
+    if (when !== 'upcoming' && !noEmail) more.push(`<button class="btn btn-ghost btn-sm" onclick="OUT.copy('${lid}',${ci},${idx})">📋 Copy</button>`, `<button class="btn btn-ghost btn-sm" onclick="OUT.open('${lid}',${ci})">✏️ Edit</button>`);
     if (c.phone && when !== 'upcoming') {
-      extra.push(`<a class="btn btn-ghost btn-sm" href="tel:${esc(c.phone)}" style="text-decoration:none">📞 Call</a>`);
-      const wa = YO.waLink(c.phone, ''); if (wa) extra.push(`<a class="btn btn-ghost btn-sm" target="_blank" rel="noopener" href="${esc(wa)}" style="text-decoration:none">💬 WhatsApp</a>`);
+      more.push(`<a class="btn btn-ghost btn-sm" href="tel:${esc(c.phone)}">📞 Call</a>`);
+      const wa = YO.waLink(c.phone, ''); if (wa) more.push(`<a class="btn btn-ghost btn-sm" target="_blank" rel="noopener" href="${esc(wa)}">💬 WhatsApp</a>`);
     }
     if (c && c.name && when !== 'upcoming' && !noEmail) {
-      extra.push(`<button class="btn btn-ghost btn-sm" onclick="OUT.replied('${lid}',${ci})">↩ Replied</button>`);
-      extra.push(`<button class="btn btn-ghost btn-sm" style="color:var(--red)" onclick="OUT.dnc('${lid}',${ci})">⛔ Don't contact</button>`);
+      more.push(`<button class="btn btn-ghost btn-sm" onclick="OUT.replied('${lid}',${ci})">↩ They replied</button>`);
+      more.push(`<button class="btn btn-ghost btn-sm" style="color:var(--red)" onclick="OUT.dnc('${lid}',${ci})">⛔ Don't contact</button>`);
     }
+    const moreBox = more.length ? `<details class="oq-more"><summary>More</summary><div class="oq-more-grid">${more.join('')}</div></details>` : '';
     const leaseBox = left.includes('[LEASE]') && when !== 'upcoming' ? `
       <div class="oq-warn">⚠ This email needs the company's annual rent.
         <input class="fi" id="lease-${lid}" type="number" placeholder="e.g. 12000000" style="width:150px;padding:6px 10px">
@@ -145,7 +178,7 @@
       </div>
       ${when !== 'upcoming' && !noEmail ? `<div class="oq-prev"><b>${esc(f.subject)}</b>\n${esc(f.body.split('\n').slice(0, 4).join('\n'))}…</div>` : ''}
       ${leaseBox}${otherWarn}
-      <div class="oq-acts">${actions}${extra.join('')}</div>
+      ${actions}${moreBox}
     </div>`;
   }
 
@@ -158,7 +191,7 @@
     const cap = (arr, n) => arr.slice(0, n).map(cardHtml).join('') + (arr.length > n ? `<div class="oq-sub" style="margin:6px 0 12px">+ ${arr.length - n} more. Clear these first.</div>` : '');
     root.innerHTML = `
       <div class="sec-head" style="margin-top:0"><h3>Email Queue</h3><a onclick="OUT.openImport()">⬆ Import CSV</a></div>
-      <div class="oq-strip">${stat(due.length, 'Overdue')}${stat(today.length, 'Due today')}${stat(ws.sent, 'Sent this week')}${stat(ws.replies, 'Replies this week')}${stat(ws.meetings, 'Meetings set')}</div>
+      <div class="oq-strip">${stat(due.length, 'Overdue')}${stat(today.length, 'Due today')}${stat(ws.sent, 'Sent 7d')}${stat(ws.replies, 'Replies 7d')}${stat(ws.meetings, 'Meetings')}</div>
       ${due.length ? `<div class="oq-h" style="color:var(--red)">Overdue (${due.length})</div>${cap(due, 25)}` : ''}
       ${today.length ? `<div class="oq-h">Due today (${today.length})</div>${cap(today, 25)}` : ''}
       ${!due.length && !today.length ? `<div class="card" style="text-align:center;padding:30px;color:var(--muted);font-size:13px">Nothing due. 🎉<br>${up.length ? `${up.length} more coming up.` : 'Import a CSV or start a sequence on a lead to fill the queue.'}</div>` : ''}
@@ -168,7 +201,8 @@
           <button class="btn btn-ghost btn-sm" onclick="OUT.open('${esc(l.id)}',0,'overview')">Open</button>
           <button class="btn btn-g btn-sm" onclick="changeStage('${esc(l.id)}','Meeting Set')">📅 Meeting set</button></div></div>`;
       }).join('')}` : ''}
-      ${up.length ? `<div class="oq-h">Coming up (${up.length})</div>${up.slice(0, 15).map(cardHtml).join('')}${up.length > 15 ? `<div class="oq-sub">+ ${up.length - 15} more</div>` : ''}` : ''}`;
+      ${up.length ? `<div class="oq-h">Coming up (${up.length})</div>${up.slice(0, 15).map(cardHtml).join('')}${up.length > 15 ? `<div class="oq-sub">+ ${up.length - 15} more</div>` : ''}` : ''}
+      <div class="oq-ver">Outreach build ${esc(YO.VERSION)}</div>`;
   }
 
   function refreshNavBadge() {
@@ -299,9 +333,9 @@
     if (c) {
       const links = [];
       if (c.phone) {
-        links.push(`<a class="btn btn-ghost btn-sm" href="tel:${esc(c.phone)}" style="text-decoration:none">📞 Call</a>`);
-        const wa = YO.waLink(c.phone, ''); if (wa) links.push(`<a class="btn btn-ghost btn-sm" target="_blank" rel="noopener" href="${esc(wa)}" style="text-decoration:none">💬 WhatsApp</a>`);
-        ['Answered', 'No answer', 'Voicemail'].forEach(o => links.push(`<button class="btn btn-ghost btn-sm" onclick="OUT.logCall('${lid}',${outCi},'${o.toLowerCase()}')">Log: ${o}</button>`));
+        links.push(`<a class="btn btn-ghost btn-sm" href="tel:${esc(c.phone)}" style="text-decoration:none;display:inline-flex;align-items:center">📞 Call</a>`);
+        const wa = YO.waLink(c.phone, ''); if (wa) links.push(`<a class="btn btn-ghost btn-sm" target="_blank" rel="noopener" href="${esc(wa)}" style="text-decoration:none;display:inline-flex;align-items:center">💬 WhatsApp</a>`);
+        links.push(`<details class="oq-more" style="margin:0;flex-basis:100%"><summary>Log a call</summary><div class="oq-more-grid" style="grid-template-columns:repeat(3,minmax(0,1fr))">${['Answered', 'No answer', 'Voicemail'].map(o => `<button class="btn btn-ghost btn-sm" onclick="OUT.logCall('${lid}',${outCi},'${o.toLowerCase()}')">${o}</button>`).join('')}</div></details>`);
       }
       head = `<div style="background:var(--gll);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:14px">
         <div style="font-weight:800;font-size:14px">${esc(c.name || 'Unknown')}${c.dnc ? ' <span class="oq-tag r">⛔ Do not contact</span>' : ''}</div>
@@ -347,14 +381,17 @@
         const d = Math.ceil((due - new Date()) / 86400000);
         dueLbl = d < 0 ? `<span style="color:var(--red);font-size:11px;font-weight:600">⚠ ${-d}d overdue</span>` : d === 0 ? '<span style="color:var(--amber);font-size:11px;font-weight:600">Due today</span>' : `<span style="color:var(--muted);font-size:11px">Due ${fmtDay(due)}</span>`;
       }
-      let acts = '';
-      if (isNext && to) acts = `
-        <a class="btn btn-ghost btn-sm" target="_blank" rel="noopener" href="${esc(YO.gmail(to, f.subject, f.body))}">✉ Gmail</a>
-        <a class="btn btn-ghost btn-sm" href="${esc(YO.mailto(to, f.subject, f.body))}">📱 Mail app</a>
-        <button class="btn btn-ghost btn-sm" onclick="OUT.copy('${lid}',${outCi},${i})">📋 Copy</button>
-        <button class="btn btn-g btn-sm" onclick="OUT.sent('${lid}',${outCi},${i})">✓ I sent it</button>`;
-      if (i === lastSent && !reason && stt !== 'replied') acts += `<button class="btn btn-ghost btn-sm" onclick="OUT.replied('${lid}',${outCi})">↩ Replied</button>`;
-      if (stt === 'draft') acts += `<button class="btn btn-ghost btn-sm" onclick="OUT.edit(${i})">✏️ Edit</button>`;
+      let acts = '', moreActs = [];
+      if (isNext && to) {
+        acts = `<div class="oq-primary">
+          <a class="btn btn-ghost btn-sm" target="_blank" rel="noopener" href="${esc(YO.gmail(to, f.subject, f.body))}">✉ Gmail</a>
+          <a class="btn btn-ghost btn-sm" href="${esc(YO.mailto(to, f.subject, f.body))}">📱 Mail app</a>
+          <button class="btn btn-g btn-sm oq-go" onclick="OUT.sent('${lid}',${outCi},${i})">✓ I sent it</button></div>`;
+        moreActs.push(`<button class="btn btn-ghost btn-sm" onclick="OUT.copy('${lid}',${outCi},${i})">📋 Copy</button>`);
+      }
+      if (i === lastSent && !reason && stt !== 'replied') moreActs.push(`<button class="btn btn-ghost btn-sm" onclick="OUT.replied('${lid}',${outCi})">↩ They replied</button>`);
+      if (stt === 'draft') moreActs.push(`<button class="btn btn-ghost btn-sm" onclick="OUT.edit(${i})">✏️ Edit</button>`);
+      if (moreActs.length) acts += `<details class="oq-more"><summary>More</summary><div class="oq-more-grid">${moreActs.join('')}</div></details>`;
       const body = editing ? `
         <input class="fi" id="ed-subj" value="${esc(f.subject)}" style="margin-bottom:8px">
         <textarea class="narea" id="ed-body" style="min-height:220px">${esc(YO.renderStep(l, outCi, i, templatesFor).body)}</textarea>
@@ -368,7 +405,7 @@
         </div>
         ${left.length && isNext ? `<div class="oq-warn">⚠ Still contains ${esc(left.join(', '))}. ${left.includes('[LEASE]') ? 'Enter the annual rent above, or ' : ''}use ✏️ Edit.</div>` : ''}
         ${body}
-        ${acts ? `<div class="oq-acts" style="margin-top:8px">${acts}</div>` : ''}
+        ${acts}
       </div>`;
     }).join('');
     el.innerHTML = chips + head + `
@@ -383,7 +420,7 @@
      CSV IMPORT
      ==================================================================== */
   let imp = null;
-  function impReset() { imp = { rows: null, headers: [], mapping: {}, name: '', start: true, text: '' }; renderImport(); }
+  function impReset() { imp = { rows: null, headers: [], mapping: {}, name: '', start: true, text: '', mapOpen: null }; renderImport(); }
 
   function impLoad(text, name) {
     const rows = YO.parseCsv(text);
@@ -419,22 +456,26 @@
     if (imp.mapping.email == null) warns.push('No email column found: people will be added without emails.');
     if (imp.mapping.company == null && imp.mapping.website == null) warns.push('No company column found: new people can’t be filed under a company, so they’ll be skipped.');
     if (imp.mapping.name == null && imp.mapping.first == null) warns.push('No name column found.');
+    const needFix = imp.mapping.email == null || (imp.mapping.company == null && imp.mapping.website == null) || (imp.mapping.name == null && imp.mapping.first == null);
+    const matched = Object.keys(imp.mapping).length;
     const pill = (n, t) => n ? `<span class="imp-pill">${n} ${t}</span>` : '';
     root.innerHTML = `
-      <div class="oq-sub" style="margin-bottom:10px"><b>${esc(imp.name)}</b> · ${imp.rows.length} rows. Check the columns were matched correctly:</div>
-      <div class="g2" style="gap:8px 14px">${Object.keys(YO.FIELD_LABELS).map(k => `<div><label class="fl">${esc(YO.FIELD_LABELS[k])}</label><select class="fsel" style="width:100%" onchange="OUT.impMap('${k}',this.value)">${opt(k)}</select></div>`).join('')}</div>
+      <div class="oq-sub" style="margin-bottom:10px"><b>${esc(imp.name)}</b> · ${imp.rows.length} rows</div>
+      <details class="oq-more" ${(imp.mapOpen === null ? needFix : imp.mapOpen) ? 'open' : ''} ontoggle="OUT.impMapOpen(this.open)" style="margin:0 0 6px">
+        <summary>${needFix ? '⚠ Check the columns' : '✓ Columns matched'} <span style="font-weight:500">(${matched} of ${Object.keys(YO.FIELD_LABELS).length} fields found, tap to change)</span></summary>
+        <div class="g2" style="gap:8px 14px;margin-top:6px">${Object.keys(YO.FIELD_LABELS).map(k => `<div><label class="fl">${esc(YO.FIELD_LABELS[k])}</label><select class="fsel" style="width:100%" onchange="OUT.impMap('${k}',this.value)">${opt(k)}</select></div>`).join('')}</div>
+      </details>
       ${warns.map(w => `<div class="oq-warn">⚠ ${esc(w)}</div>`).join('')}
       <label style="display:flex;gap:8px;align-items:center;margin:14px 0;font-size:13px"><input type="checkbox" ${imp.start ? 'checked' : ''} onchange="OUT.impStart(this.checked)"> Start the email sequence for imported people who have an email (first email due today)</label>
       <div style="background:var(--gll);border-radius:10px;padding:12px;margin-bottom:10px">
         <div style="font-weight:800;margin-bottom:6px">What will happen</div>
         ${pill(s.newLeads, 'new companies')}${pill(s.addedPeople, 'people added')}${pill(s.updatedPeople, 'people updated')}${pill(s.unchanged, 'unchanged')}${pill(s.started, 'sequences started')}${pill(s.noEmail, 'without email')}${pill(s.blocked, 'blocked (do not contact)')}${pill(s.skipped, 'skipped')}${pill(s.duplicates, 'repeat rows merged')}
-        <div class="imp-wrap"><table class="imp-tbl"><tr><th>Row</th><th>Person</th><th>Company</th><th>Result</th></tr>
-        ${res.preview.slice(0, 8).map(p => `<tr><td>${p.row}</td><td>${esc(p.who)}</td><td>${esc(p.company)}</td><td>${esc(p.action)}: ${esc(p.note)}</td></tr>`).join('')}
-        </table></div>${res.preview.length > 8 ? `<div class="oq-sub" style="margin-top:6px">…and ${res.preview.length - 8} more rows</div>` : ''}
+        <div style="margin-top:8px">${res.preview.slice(0, 8).map(p => `<div class="imp-row"><span class="imp-act ${esc(p.action)}">${esc(p.action)}</span><div class="imp-txt"><b>${esc(p.who)}</b>${p.company ? ' · ' + esc(p.company) : ''}<div class="oq-sub">Row ${p.row}: ${esc(p.note)}</div></div></div>`).join('')}</div>
+        ${res.preview.length > 8 ? `<div class="oq-sub" style="margin-top:6px">…and ${res.preview.length - 8} more rows</div>` : ''}
       </div>
-      <div style="display:flex;gap:8px;justify-content:space-between;flex-wrap:wrap">
-        <button class="btn btn-ghost" onclick="OUT.impBack()">← Choose another file</button>
-        <div style="display:flex;gap:8px"><button class="btn btn-ghost" onclick="OUT.closeImport()">Cancel</button>
+      <div class="imp-foot">
+        <button class="btn btn-ghost" onclick="OUT.impBack()">← Another file</button>
+        <div><button class="btn btn-ghost" onclick="OUT.closeImport()">Cancel</button>
         <button class="btn btn-g" id="imp-go" ${res.changed.length ? '' : 'disabled'} onclick="OUT.impRun()">Import ${res.changed.length} lead${res.changed.length === 1 ? '' : 's'}</button></div>
       </div>`;
   }
@@ -442,6 +483,7 @@
     impPaste() { const t = ($('imp-text') || {}).value || ''; if (!t.trim()) return warn('Paste the CSV text first.'); impLoad(t, 'pasted.csv'); },
     impMap(field, v) { if (v === '') delete imp.mapping[field]; else imp.mapping[field] = Number(v); renderImport(); },
     impStart(v) { imp.start = !!v; renderImport(); },
+    impMapOpen(open) { imp.mapOpen = !!open; },
     impBack() { impReset(); },
     async impRun() {
       const btn = $('imp-go'); if (btn) { btn.disabled = true; btn.textContent = 'Importing…'; }
@@ -479,10 +521,10 @@
     let strip = $('oq-dash-strip');
     if (!strip) { strip = document.createElement('div'); strip.id = 'oq-dash-strip'; wrap.parentNode.insertBefore(strip, wrap); }
     strip.innerHTML = `<div class="oq-strip">
-      <div class="oq-stat" style="cursor:pointer" onclick="showTab('outreach')"><b>${q.length}</b><span>Emails to send</span></div>
-      <div class="oq-stat"><b>${ws.sent}</b><span>Sent this week</span></div>
-      <div class="oq-stat"><b>${ws.replies}</b><span>Replies this week</span></div>
-      <div class="oq-stat"><b>${ws.meetings}</b><span>Meetings set</span></div>
+      <div class="oq-stat" style="cursor:pointer" onclick="showTab('outreach')"><b>${q.length}</b><span>To send</span></div>
+      <div class="oq-stat"><b>${ws.sent}</b><span>Sent 7d</span></div>
+      <div class="oq-stat"><b>${ws.replies}</b><span>Replies 7d</span></div>
+      <div class="oq-stat"><b>${ws.meetings}</b><span>Meetings</span></div>
       <div class="oq-stat"><b>${ws.inSeq}</b><span>In sequence</span></div></div>`;
 
     const items = [

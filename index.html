@@ -159,7 +159,9 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg);color:var(-
 .sync-dot{width:7px;height:7px;border-radius:50%;background:var(--red);display:inline-block;margin-right:6px}
 .sync-dot.on{background:var(--g)}
 .sync-txt{font-size:11px;color:rgba(255,255,255,.4)}
-.main{margin-left:220px;flex:1;min-height:100vh;display:flex;flex-direction:column}
+.main{margin-left:220px;flex:1;min-height:100vh;display:flex;flex-direction:column;min-width:0}
+.charts-row>*,.bot-row>*,.metrics>*{min-width:0}
+canvas{max-width:100%}
 .topbar{background:#fff;padding:0 28px;height:60px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);position:sticky;top:0;z-index:50}
 .page-title{font-size:18px;font-weight:700}
 .btn{padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:none;transition:.2s;font-family:inherit}
@@ -367,7 +369,7 @@ tr:hover td{background:var(--gll)}
 .igrid{grid-template-columns:1fr 1fr}
 /* Drawer full screen */
 .mo{align-items:flex-end}
-.md{width:100vw;height:92vh;border-radius:16px 16px 0 0}
+.md{width:100vw;max-width:100vw;height:92vh;border-radius:16px 16px 0 0}
 /* Modals */
 .cm{width:96vw;padding:20px}
 /* Tables become readable */
@@ -2852,8 +2854,8 @@ setTimeout(syncReminderTriggers,6000);
 // Re-register the push token on each launch (tokens rotate) once settings are loaded.
 setTimeout(()=>{ if(settings&&settings.vapidKey&&('Notification'in window)&&Notification.permission==='granted')registerPush(); },7000);
 </script>
-<script src="outreach-core.js"></script>
-<script src="outreach.js"></script>
+<script src="outreach-core.js?v=2026-11-10.2"></script>
+<script src="outreach.js?v=2026-11-10.2"></script>
 
 <div class="bottom-nav" id="bottom-nav">
   <button class="bn-item active" id="bn-dashboard" onclick="showTab('dashboard')"><span>📊</span>Home</button>

@@ -211,3 +211,9 @@ test('weekStats counts sent/replies from activity log and replies to handle', ()
   const s = YO.weekStats(acts, [l1, l2], T0);
   assert.equal(s.sent, 2); assert.equal(s.replies, 1); assert.equal(s.meetings, 1); assert.equal(s.repliesToHandle.length, 1);
 });
+
+test('index.html script tags carry the same build version as the code (cache-busting)', () => {
+  const html = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'index.html'), 'utf8');
+  assert.ok(html.includes('outreach-core.js?v=' + YO.VERSION));
+  assert.ok(html.includes('outreach.js?v=' + YO.VERSION));
+});

@@ -20,7 +20,7 @@ try {
   });
 } catch (e) { /* messaging optional; app shell still works */ }
 
-const CACHE = 'yalo-crm-shell-v4';
+const CACHE = 'yalo-crm-shell-v5';
 const LIBS = 'yalo-crm-libs-v1';
 const SHELL = ['index.html', 'outreach-core.js', 'outreach.js', 'card.html', 'manifest.json', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png', 'favicon-32.png', 'icon.svg'];
 const LIB_HOSTS = ['www.gstatic.com', 'cdnjs.cloudflare.com', 'fonts.googleapis.com', 'fonts.gstatic.com'];
@@ -53,7 +53,9 @@ self.addEventListener('fetch', e => {
   // App shell: network first, cached copy when offline.
   if (url.origin === self.location.origin && (url.pathname.endsWith('/') || SHELL.some(f => url.pathname.endsWith(f)))) {
     e.respondWith(
-      fetch(e.request).then(res => {
+      // cache:'no-cache' = always revalidate with the server. GitHub Pages tells browsers to keep files for
+      // 10 minutes, which made fresh deploys look like they had not happened.
+      fetch(e.request, { cache: 'no-cache' }).then(res => {
         const copy = res.clone();
         caches.open(CACHE).then(c => c.put(e.request, copy));
         return res;
