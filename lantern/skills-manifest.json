@@ -1,0 +1,777 @@
+{
+ "repos": {
+  "founder-skill": "Jakeschincariol/founder-skill",
+  "instagram-agent-skill": "Jakeschincariol/instagram-agent-skill",
+  "youtube-agent-skill": "Jakeschincariol/youtube-agent-skill",
+  "google-maps-scraper": "gosom/google-maps-scraper",
+  "open-seo": "every-app/open-seo",
+  "argo": "shreyaskarnik/argo",
+  "huashu-motion": "alchaincyf/huashu-motion",
+  "video-director": "win4r/video-director",
+  "voicestudio": "debpalash/voicestudio",
+  "openwhispr": "OpenWhispr/openwhispr",
+  "hyperframes": "heygen-com/hyperframes",
+  "OpenOutreach": "eracle/OpenOutreach",
+  "sellbird": "ethanplusai/sellbird",
+  "firecrawl": "firecrawl/firecrawl",
+  "claude-video": "bradautomates/claude-video",
+  "brag": "latent-spaces/brag",
+  "Clipwing-skills": "Clipwing/skills",
+  "earshot": "Leonxlnx/earshot",
+  "remotion-dev-skills": "remotion-dev/skills",
+  "taste-skill": "leonxlnx/taste-skill",
+  "superpowers": "obra/superpowers",
+  "lemo-opuscar": "lemomo-ai/lemo-opuscar"
+ },
+ "skills": [
+  {
+   "repo": "founder-skill",
+   "url": "https://github.com/Jakeschincariol/founder-skill.git",
+   "src": "skills/founder-board",
+   "name": "founder-board",
+   "tag": "[SALES]"
+  },
+  {
+   "repo": "founder-skill",
+   "url": "https://github.com/Jakeschincariol/founder-skill.git",
+   "src": "skills/founder-brand",
+   "name": "founder-brand",
+   "tag": "[SALES]"
+  },
+  {
+   "repo": "founder-skill",
+   "url": "https://github.com/Jakeschincariol/founder-skill.git",
+   "src": "skills/founder-cfo",
+   "name": "founder-cfo",
+   "tag": "[SALES]"
+  },
+  {
+   "repo": "founder-skill",
+   "url": "https://github.com/Jakeschincariol/founder-skill.git",
+   "src": "skills/founder-competitors",
+   "name": "founder-competitors",
+   "tag": "[SALES]"
+  },
+  {
+   "repo": "founder-skill",
+   "url": "https://github.com/Jakeschincariol/founder-skill.git",
+   "src": "skills/founder-consumer",
+   "name": "founder-consumer",
+   "tag": "[SALES]"
+  },
+  {
+   "repo": "founder-skill",
+   "url": "https://github.com/Jakeschincariol/founder-skill.git",
+   "src": "skills/founder-launch",
+   "name": "founder-launch",
+   "tag": "[SALES]"
+  },
+  {
+   "repo": "founder-skill",
+   "url": "https://github.com/Jakeschincariol/founder-skill.git",
+   "src": "skills/founder-marketing",
+   "name": "founder-marketing",
+   "tag": "[SALES]"
+  },
+  {
+   "repo": "founder-skill",
+   "url": "https://github.com/Jakeschincariol/founder-skill.git",
+   "src": "skills/founder-offer",
+   "name": "founder-offer",
+   "tag": "[SALES]"
+  },
+  {
+   "repo": "founder-skill",
+   "url": "https://github.com/Jakeschincariol/founder-skill.git",
+   "src": "skills/founder-ops",
+   "name": "founder-ops",
+   "tag": "[SALES]"
+  },
+  {
+   "repo": "founder-skill",
+   "url": "https://github.com/Jakeschincariol/founder-skill.git",
+   "src": "skills/founder-plan",
+   "name": "founder-plan",
+   "tag": "[SALES]"
+  },
+  {
+   "repo": "founder-skill",
+   "url": "https://github.com/Jakeschincariol/founder-skill.git",
+   "src": "skills/founder-pricing",
+   "name": "founder-pricing",
+   "tag": "[SALES]"
+  },
+  {
+   "repo": "instagram-agent-skill",
+   "url": "https://github.com/Jakeschincariol/instagram-agent-skill.git",
+   "src": "skills/ig-audit",
+   "name": "ig-audit",
+   "tag": "[INSTAGRAM]"
+  },
+  {
+   "repo": "instagram-agent-skill",
+   "url": "https://github.com/Jakeschincariol/instagram-agent-skill.git",
+   "src": "skills/ig-caption",
+   "name": "ig-caption",
+   "tag": "[INSTAGRAM]"
+  },
+  {
+   "repo": "instagram-agent-skill",
+   "url": "https://github.com/Jakeschincariol/instagram-agent-skill.git",
+   "src": "skills/ig-carousel",
+   "name": "ig-carousel",
+   "tag": "[INSTAGRAM]"
+  },
+  {
+   "repo": "instagram-agent-skill",
+   "url": "https://github.com/Jakeschincariol/instagram-agent-skill.git",
+   "src": "skills/ig-comment",
+   "name": "ig-comment",
+   "tag": "[INSTAGRAM]"
+  },
+  {
+   "repo": "instagram-agent-skill",
+   "url": "https://github.com/Jakeschincariol/instagram-agent-skill.git",
+   "src": "skills/ig-dm",
+   "name": "ig-dm",
+   "tag": "[INSTAGRAM]"
+  },
+  {
+   "repo": "instagram-agent-skill",
+   "url": "https://github.com/Jakeschincariol/instagram-agent-skill.git",
+   "src": "skills/ig-human",
+   "name": "ig-human",
+   "tag": "[INSTAGRAM]"
+  },
+  {
+   "repo": "instagram-agent-skill",
+   "url": "https://github.com/Jakeschincariol/instagram-agent-skill.git",
+   "src": "skills/ig-plan",
+   "name": "ig-plan",
+   "tag": "[INSTAGRAM]"
+  },
+  {
+   "repo": "instagram-agent-skill",
+   "url": "https://github.com/Jakeschincariol/instagram-agent-skill.git",
+   "src": "skills/ig-profile",
+   "name": "ig-profile",
+   "tag": "[INSTAGRAM]"
+  },
+  {
+   "repo": "instagram-agent-skill",
+   "url": "https://github.com/Jakeschincariol/instagram-agent-skill.git",
+   "src": "skills/ig-reel",
+   "name": "ig-reel",
+   "tag": "[INSTAGRAM]"
+  },
+  {
+   "repo": "instagram-agent-skill",
+   "url": "https://github.com/Jakeschincariol/instagram-agent-skill.git",
+   "src": "skills/ig-reply",
+   "name": "ig-reply",
+   "tag": "[INSTAGRAM]"
+  },
+  {
+   "repo": "instagram-agent-skill",
+   "url": "https://github.com/Jakeschincariol/instagram-agent-skill.git",
+   "src": "skills/ig-repurpose",
+   "name": "ig-repurpose",
+   "tag": "[INSTAGRAM]"
+  },
+  {
+   "repo": "instagram-agent-skill",
+   "url": "https://github.com/Jakeschincariol/instagram-agent-skill.git",
+   "src": "skills/ig-story",
+   "name": "ig-story",
+   "tag": "[INSTAGRAM]"
+  },
+  {
+   "repo": "instagram-agent-skill",
+   "url": "https://github.com/Jakeschincariol/instagram-agent-skill.git",
+   "src": "skills/ig-viral",
+   "name": "ig-viral",
+   "tag": "[INSTAGRAM]"
+  },
+  {
+   "repo": "open-seo",
+   "url": "https://github.com/every-app/open-seo.git",
+   "src": ".agents/skills/ai-prompt-research",
+   "name": "seo-ai-prompt-research",
+   "tag": "[SALES]"
+  },
+  {
+   "repo": "open-seo",
+   "url": "https://github.com/every-app/open-seo.git",
+   "src": ".agents/skills/ai-visibility-audit",
+   "name": "seo-ai-visibility-audit",
+   "tag": "[SALES]"
+  },
+  {
+   "repo": "open-seo",
+   "url": "https://github.com/every-app/open-seo.git",
+   "src": ".agents/skills/competitive-landscape",
+   "name": "seo-competitive-landscape",
+   "tag": "[SALES]"
+  },
+  {
+   "repo": "open-seo",
+   "url": "https://github.com/every-app/open-seo.git",
+   "src": ".agents/skills/competitor-analysis",
+   "name": "seo-competitor-analysis",
+   "tag": "[SALES]"
+  },
+  {
+   "repo": "open-seo",
+   "url": "https://github.com/every-app/open-seo.git",
+   "src": ".agents/skills/keyword-clustering",
+   "name": "seo-keyword-clustering",
+   "tag": "[SALES]"
+  },
+  {
+   "repo": "open-seo",
+   "url": "https://github.com/every-app/open-seo.git",
+   "src": ".agents/skills/keyword-research",
+   "name": "seo-keyword-research",
+   "tag": "[SALES]"
+  },
+  {
+   "repo": "open-seo",
+   "url": "https://github.com/every-app/open-seo.git",
+   "src": ".agents/skills/link-prospecting",
+   "name": "seo-link-prospecting",
+   "tag": "[SALES]"
+  },
+  {
+   "repo": "open-seo",
+   "url": "https://github.com/every-app/open-seo.git",
+   "src": ".agents/skills/local-seo",
+   "name": "seo-local-seo",
+   "tag": "[SALES]"
+  },
+  {
+   "repo": "open-seo",
+   "url": "https://github.com/every-app/open-seo.git",
+   "src": ".agents/skills/seo-audit",
+   "name": "seo-audit",
+   "tag": "[SALES]"
+  },
+  {
+   "repo": "open-seo",
+   "url": "https://github.com/every-app/open-seo.git",
+   "src": ".agents/skills/seo-coach",
+   "name": "seo-coach",
+   "tag": "[SALES]"
+  },
+  {
+   "repo": "open-seo",
+   "url": "https://github.com/every-app/open-seo.git",
+   "src": ".agents/skills/seo-project-setup",
+   "name": "seo-project-setup",
+   "tag": "[SALES]"
+  },
+  {
+   "repo": "open-seo",
+   "url": "https://github.com/every-app/open-seo.git",
+   "src": ".agents/skills/seo-report",
+   "name": "seo-report",
+   "tag": "[SALES]"
+  },
+  {
+   "repo": "open-seo",
+   "url": "https://github.com/every-app/open-seo.git",
+   "src": ".agents/skills/setup-openseo",
+   "name": "seo-setup-openseo",
+   "tag": "[SALES]"
+  },
+  {
+   "repo": "google-maps-scraper",
+   "url": "https://github.com/gosom/google-maps-scraper.git",
+   "src": "skills/google-maps-scraper",
+   "name": "sales-google-maps-scraper",
+   "tag": "[SALES]"
+  },
+  {
+   "repo": "argo",
+   "url": "https://github.com/shreyaskarnik/argo.git",
+   "src": "skills/argo-guide",
+   "name": "video-argo-demo",
+   "tag": "[VIDEO/YOUTUBE]"
+  },
+  {
+   "repo": "huashu-motion",
+   "url": "https://github.com/alchaincyf/huashu-motion.git",
+   "src": "skills/huashu-motion",
+   "name": "video-huashu-motion",
+   "tag": "[VIDEO/YOUTUBE]"
+  },
+  {
+   "repo": "video-director",
+   "url": "https://github.com/win4r/video-director.git",
+   "src": "video-director",
+   "name": "video-director",
+   "tag": "[VIDEO/YOUTUBE]"
+  },
+  {
+   "repo": "voicestudio",
+   "url": "https://github.com/debpalash/voicestudio.git",
+   "src": "skills/voicestudio",
+   "name": "video-voicestudio",
+   "tag": "[VIDEO/YOUTUBE]"
+  },
+  {
+   "repo": "openwhispr",
+   "url": "https://github.com/OpenWhispr/openwhispr.git",
+   "src": "agent-skills/openwhispr-cli",
+   "name": "video-openwhispr-cli",
+   "tag": "[VIDEO/YOUTUBE]"
+  },
+  {
+   "repo": "youtube-agent-skill",
+   "url": "https://github.com/Jakeschincariol/youtube-agent-skill.git",
+   "src": "skills/yt-audit",
+   "name": "yt-audit",
+   "tag": "[VIDEO/YOUTUBE]"
+  },
+  {
+   "repo": "youtube-agent-skill",
+   "url": "https://github.com/Jakeschincariol/youtube-agent-skill.git",
+   "src": "skills/yt-chapters",
+   "name": "yt-chapters",
+   "tag": "[VIDEO/YOUTUBE]"
+  },
+  {
+   "repo": "youtube-agent-skill",
+   "url": "https://github.com/Jakeschincariol/youtube-agent-skill.git",
+   "src": "skills/yt-comment",
+   "name": "yt-comment",
+   "tag": "[VIDEO/YOUTUBE]"
+  },
+  {
+   "repo": "youtube-agent-skill",
+   "url": "https://github.com/Jakeschincariol/youtube-agent-skill.git",
+   "src": "skills/yt-edit",
+   "name": "yt-edit",
+   "tag": "[VIDEO/YOUTUBE]"
+  },
+  {
+   "repo": "youtube-agent-skill",
+   "url": "https://github.com/Jakeschincariol/youtube-agent-skill.git",
+   "src": "skills/yt-package",
+   "name": "yt-package",
+   "tag": "[VIDEO/YOUTUBE]"
+  },
+  {
+   "repo": "youtube-agent-skill",
+   "url": "https://github.com/Jakeschincariol/youtube-agent-skill.git",
+   "src": "skills/yt-plan",
+   "name": "yt-plan",
+   "tag": "[VIDEO/YOUTUBE]"
+  },
+  {
+   "repo": "youtube-agent-skill",
+   "url": "https://github.com/Jakeschincariol/youtube-agent-skill.git",
+   "src": "skills/yt-retention",
+   "name": "yt-retention",
+   "tag": "[VIDEO/YOUTUBE]"
+  },
+  {
+   "repo": "youtube-agent-skill",
+   "url": "https://github.com/Jakeschincariol/youtube-agent-skill.git",
+   "src": "skills/yt-script",
+   "name": "yt-script",
+   "tag": "[VIDEO/YOUTUBE]"
+  },
+  {
+   "repo": "youtube-agent-skill",
+   "url": "https://github.com/Jakeschincariol/youtube-agent-skill.git",
+   "src": "skills/yt-seo",
+   "name": "yt-seo",
+   "tag": "[VIDEO/YOUTUBE]"
+  },
+  {
+   "repo": "youtube-agent-skill",
+   "url": "https://github.com/Jakeschincariol/youtube-agent-skill.git",
+   "src": "skills/yt-shorts",
+   "name": "yt-shorts",
+   "tag": "[VIDEO/YOUTUBE]"
+  },
+  {
+   "repo": "youtube-agent-skill",
+   "url": "https://github.com/Jakeschincariol/youtube-agent-skill.git",
+   "src": "skills/yt-viral",
+   "name": "yt-viral",
+   "tag": "[VIDEO/YOUTUBE]"
+  },
+  {
+   "repo": "OpenOutreach",
+   "url": "https://github.com/eracle/OpenOutreach.git",
+   "src": "skills/find-leads",
+   "name": "sales-openoutreach-find-leads",
+   "tag": "[SALES]"
+  },
+  {
+   "repo": "firecrawl",
+   "url": "https://github.com/firecrawl/firecrawl.git",
+   "src": "skills/firecrawl-build",
+   "name": "sales-firecrawl-build",
+   "tag": "[SALES]"
+  },
+  {
+   "repo": "firecrawl",
+   "url": "https://github.com/firecrawl/firecrawl.git",
+   "src": "skills/firecrawl-build-interact",
+   "name": "sales-firecrawl-build-interact",
+   "tag": "[SALES]"
+  },
+  {
+   "repo": "firecrawl",
+   "url": "https://github.com/firecrawl/firecrawl.git",
+   "src": "skills/firecrawl-build-onboarding",
+   "name": "sales-firecrawl-build-onboarding",
+   "tag": "[SALES]"
+  },
+  {
+   "repo": "firecrawl",
+   "url": "https://github.com/firecrawl/firecrawl.git",
+   "src": "skills/firecrawl-build-scrape",
+   "name": "sales-firecrawl-build-scrape",
+   "tag": "[SALES]"
+  },
+  {
+   "repo": "firecrawl",
+   "url": "https://github.com/firecrawl/firecrawl.git",
+   "src": "skills/firecrawl-build-search",
+   "name": "sales-firecrawl-build-search",
+   "tag": "[SALES]"
+  },
+  {
+   "repo": "hyperframes",
+   "url": "https://github.com/heygen-com/hyperframes.git",
+   "src": "skills/figma",
+   "name": "video-hf-figma",
+   "tag": "[VIDEO/YOUTUBE]"
+  },
+  {
+   "repo": "hyperframes",
+   "url": "https://github.com/heygen-com/hyperframes.git",
+   "src": "skills/hyperframes",
+   "name": "video-hf-hyperframes",
+   "tag": "[VIDEO/YOUTUBE]"
+  },
+  {
+   "repo": "hyperframes",
+   "url": "https://github.com/heygen-com/hyperframes.git",
+   "src": "skills/hyperframes-cli",
+   "name": "video-hf-hyperframes-cli",
+   "tag": "[VIDEO/YOUTUBE]"
+  },
+  {
+   "repo": "hyperframes",
+   "url": "https://github.com/heygen-com/hyperframes.git",
+   "src": "skills/hyperframes-registry",
+   "name": "video-hf-hyperframes-registry",
+   "tag": "[VIDEO/YOUTUBE]"
+  },
+  {
+   "repo": "hyperframes",
+   "url": "https://github.com/heygen-com/hyperframes.git",
+   "src": "skills/media-use",
+   "name": "video-hf-media-use",
+   "tag": "[VIDEO/YOUTUBE]"
+  },
+  {
+   "repo": "hyperframes",
+   "url": "https://github.com/heygen-com/hyperframes.git",
+   "src": "skills/remotion-to-hyperframes",
+   "name": "video-hf-remotion-to-hyperframes",
+   "tag": "[VIDEO/YOUTUBE]"
+  },
+  {
+   "repo": "hyperframes",
+   "url": "https://github.com/heygen-com/hyperframes.git",
+   "src": "skills/reverse-any-video",
+   "name": "video-hf-reverse-any-video",
+   "tag": "[VIDEO/YOUTUBE]"
+  },
+  {
+   "repo": "hyperframes",
+   "url": "https://github.com/heygen-com/hyperframes.git",
+   "src": "skills/slideshow",
+   "name": "video-hf-slideshow",
+   "tag": "[VIDEO/YOUTUBE]"
+  },
+  {
+   "repo": "hyperframes",
+   "url": "https://github.com/heygen-com/hyperframes.git",
+   "src": "skills/style-sampling",
+   "name": "video-hf-style-sampling",
+   "tag": "[VIDEO/YOUTUBE]"
+  },
+  {
+   "repo": "hyperframes",
+   "url": "https://github.com/heygen-com/hyperframes.git",
+   "src": ".claude/skills/captions-overlay",
+   "name": "video-hf-captions-overlay",
+   "tag": "[VIDEO/YOUTUBE]"
+  },
+  {
+   "repo": "hyperframes",
+   "url": "https://github.com/heygen-com/hyperframes.git",
+   "src": ".claude/skills/changelog-video",
+   "name": "video-hf-changelog-video",
+   "tag": "[VIDEO/YOUTUBE]"
+  },
+  {
+   "repo": "hyperframes",
+   "url": "https://github.com/heygen-com/hyperframes.git",
+   "src": ".claude/skills/motion-doctrine",
+   "name": "video-hf-motion-doctrine",
+   "tag": "[VIDEO/YOUTUBE]"
+  },
+  {
+   "repo": "claude-video",
+   "url": "https://github.com/bradautomates/claude-video.git",
+   "src": "skills/watch",
+   "name": "video-watch",
+   "tag": "[VIDEO/YOUTUBE]"
+  },
+  {
+   "repo": "brag",
+   "url": "https://github.com/latent-spaces/brag.git",
+   "src": "skills/brag",
+   "name": "video-brag",
+   "tag": "[VIDEO/YOUTUBE]"
+  },
+  {
+   "repo": "brag",
+   "url": "https://github.com/latent-spaces/brag.git",
+   "src": "skills/brag-slim",
+   "name": "video-brag-slim",
+   "tag": "[VIDEO/YOUTUBE]"
+  },
+  {
+   "repo": "Clipwing-skills",
+   "url": "https://github.com/Clipwing/skills.git",
+   "src": "skills/real-sfx",
+   "name": "video-real-sfx",
+   "tag": "[VIDEO/YOUTUBE]"
+  },
+  {
+   "repo": "Clipwing-skills",
+   "url": "https://github.com/Clipwing/skills.git",
+   "src": "skills/hyperframes-to-after-effects",
+   "name": "video-hf-to-aftereffects",
+   "tag": "[VIDEO/YOUTUBE]"
+  },
+  {
+   "repo": "earshot",
+   "url": "https://github.com/Leonxlnx/earshot.git",
+   "src": "skills/earshot",
+   "name": "video-earshot",
+   "tag": "[VIDEO/YOUTUBE]"
+  },
+  {
+   "repo": "earshot",
+   "url": "https://github.com/Leonxlnx/earshot.git",
+   "src": "skills/real-sound",
+   "name": "video-real-sound",
+   "tag": "[VIDEO/YOUTUBE]"
+  },
+  {
+   "repo": "remotion-dev-skills",
+   "url": "https://github.com/remotion-dev/skills.git",
+   "src": "skills/remotion-best-practices",
+   "name": "video-remotion-best-practices",
+   "tag": "[VIDEO/YOUTUBE]"
+  },
+  {
+   "repo": "remotion-dev-skills",
+   "url": "https://github.com/remotion-dev/skills.git",
+   "src": "skills/remotion-captions",
+   "name": "video-remotion-captions",
+   "tag": "[VIDEO/YOUTUBE]"
+  },
+  {
+   "repo": "remotion-dev-skills",
+   "url": "https://github.com/remotion-dev/skills.git",
+   "src": "skills/remotion-create",
+   "name": "video-remotion-create",
+   "tag": "[VIDEO/YOUTUBE]"
+  },
+  {
+   "repo": "remotion-dev-skills",
+   "url": "https://github.com/remotion-dev/skills.git",
+   "src": "skills/remotion-docs",
+   "name": "video-remotion-docs",
+   "tag": "[VIDEO/YOUTUBE]"
+  },
+  {
+   "repo": "remotion-dev-skills",
+   "url": "https://github.com/remotion-dev/skills.git",
+   "src": "skills/remotion-interactivity",
+   "name": "video-remotion-interactivity",
+   "tag": "[VIDEO/YOUTUBE]"
+  },
+  {
+   "repo": "remotion-dev-skills",
+   "url": "https://github.com/remotion-dev/skills.git",
+   "src": "skills/remotion-license",
+   "name": "video-remotion-license",
+   "tag": "[VIDEO/YOUTUBE]"
+  },
+  {
+   "repo": "remotion-dev-skills",
+   "url": "https://github.com/remotion-dev/skills.git",
+   "src": "skills/remotion-maps",
+   "name": "video-remotion-maps",
+   "tag": "[VIDEO/YOUTUBE]"
+  },
+  {
+   "repo": "remotion-dev-skills",
+   "url": "https://github.com/remotion-dev/skills.git",
+   "src": "skills/remotion-markup",
+   "name": "video-remotion-markup",
+   "tag": "[VIDEO/YOUTUBE]"
+  },
+  {
+   "repo": "remotion-dev-skills",
+   "url": "https://github.com/remotion-dev/skills.git",
+   "src": "skills/remotion-multimedia",
+   "name": "video-remotion-multimedia",
+   "tag": "[VIDEO/YOUTUBE]"
+  },
+  {
+   "repo": "remotion-dev-skills",
+   "url": "https://github.com/remotion-dev/skills.git",
+   "src": "skills/remotion-render",
+   "name": "video-remotion-render",
+   "tag": "[VIDEO/YOUTUBE]"
+  },
+  {
+   "repo": "remotion-dev-skills",
+   "url": "https://github.com/remotion-dev/skills.git",
+   "src": "skills/remotion-saas",
+   "name": "video-remotion-saas",
+   "tag": "[VIDEO/YOUTUBE]"
+  },
+  {
+   "repo": "remotion-dev-skills",
+   "url": "https://github.com/remotion-dev/skills.git",
+   "src": "skills/remotion-studio",
+   "name": "video-remotion-studio",
+   "tag": "[VIDEO/YOUTUBE]"
+  },
+  {
+   "repo": "remotion-dev-skills",
+   "url": "https://github.com/remotion-dev/skills.git",
+   "src": "skills/remotion-upgrade",
+   "name": "video-remotion-upgrade",
+   "tag": "[VIDEO/YOUTUBE]"
+  },
+  {
+   "repo": "taste-skill",
+   "url": "https://github.com/leonxlnx/taste-skill.git",
+   "src": "skills/taste-skill",
+   "name": "design-taste-frontend",
+   "tag": "[DESIGN]"
+  },
+  {
+   "repo": "superpowers",
+   "url": "https://github.com/obra/superpowers.git",
+   "src": "skills/brainstorming",
+   "name": "dev-brainstorming",
+   "tag": "[DEV-WORKFLOW]"
+  },
+  {
+   "repo": "superpowers",
+   "url": "https://github.com/obra/superpowers.git",
+   "src": "skills/dispatching-parallel-agents",
+   "name": "dev-dispatching-parallel-agents",
+   "tag": "[DEV-WORKFLOW]"
+  },
+  {
+   "repo": "superpowers",
+   "url": "https://github.com/obra/superpowers.git",
+   "src": "skills/executing-plans",
+   "name": "dev-executing-plans",
+   "tag": "[DEV-WORKFLOW]"
+  },
+  {
+   "repo": "superpowers",
+   "url": "https://github.com/obra/superpowers.git",
+   "src": "skills/finishing-a-development-branch",
+   "name": "dev-finishing-a-development-branch",
+   "tag": "[DEV-WORKFLOW]"
+  },
+  {
+   "repo": "superpowers",
+   "url": "https://github.com/obra/superpowers.git",
+   "src": "skills/receiving-code-review",
+   "name": "dev-receiving-code-review",
+   "tag": "[DEV-WORKFLOW]"
+  },
+  {
+   "repo": "superpowers",
+   "url": "https://github.com/obra/superpowers.git",
+   "src": "skills/requesting-code-review",
+   "name": "dev-requesting-code-review",
+   "tag": "[DEV-WORKFLOW]"
+  },
+  {
+   "repo": "superpowers",
+   "url": "https://github.com/obra/superpowers.git",
+   "src": "skills/subagent-driven-development",
+   "name": "dev-subagent-driven-development",
+   "tag": "[DEV-WORKFLOW]"
+  },
+  {
+   "repo": "superpowers",
+   "url": "https://github.com/obra/superpowers.git",
+   "src": "skills/systematic-debugging",
+   "name": "dev-systematic-debugging",
+   "tag": "[DEV-WORKFLOW]"
+  },
+  {
+   "repo": "superpowers",
+   "url": "https://github.com/obra/superpowers.git",
+   "src": "skills/test-driven-development",
+   "name": "dev-test-driven-development",
+   "tag": "[DEV-WORKFLOW]"
+  },
+  {
+   "repo": "superpowers",
+   "url": "https://github.com/obra/superpowers.git",
+   "src": "skills/using-git-worktrees",
+   "name": "dev-using-git-worktrees",
+   "tag": "[DEV-WORKFLOW]"
+  },
+  {
+   "repo": "superpowers",
+   "url": "https://github.com/obra/superpowers.git",
+   "src": "skills/verification-before-completion",
+   "name": "dev-verification-before-completion",
+   "tag": "[DEV-WORKFLOW]"
+  },
+  {
+   "repo": "superpowers",
+   "url": "https://github.com/obra/superpowers.git",
+   "src": "skills/writing-plans",
+   "name": "dev-writing-plans",
+   "tag": "[DEV-WORKFLOW]"
+  },
+  {
+   "repo": "superpowers",
+   "url": "https://github.com/obra/superpowers.git",
+   "src": "skills/writing-skills",
+   "name": "dev-writing-skills",
+   "tag": "[DEV-WORKFLOW]"
+  },
+  {
+   "repo": "lemo-opuscar",
+   "url": "https://github.com/lemomo-ai/lemo-opuscar.git",
+   "src": "plugin/skills/lemo-opuscar",
+   "name": "video-lemo-opuscar",
+   "tag": "[VIDEO/YOUTUBE]"
+  }
+ ]
+}

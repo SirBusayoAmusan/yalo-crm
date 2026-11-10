@@ -1,0 +1,50 @@
+@font-face{font-family:"EBG";font-weight:400;font-style:normal;src:url("../fonts/eb-garamond-latin-400-normal.woff2")}
+@font-face{font-family:"EBG";font-weight:400;font-style:italic;src:url("../fonts/eb-garamond-latin-400-italic.woff2")}
+@font-face{font-family:"Cormorant";font-weight:500;font-style:italic;src:url("../fonts/cormorant-garamond-latin-500-italic.woff2")}
+@font-face{font-family:"Cormorant";font-weight:400;font-style:normal;src:url("../fonts/cormorant-garamond-latin-400-normal.woff2")}
+@font-face{font-family:"Hand";font-weight:400;src:url("../fonts/caveat-latin-400-normal.woff2")}
+body{margin:0 4%;color:#2b2433;font-family:"EBG",Georgia,serif;line-height:1.55}
+p{margin:0 0 .9em;text-align:left}
+h1,h2,h3{font-family:"Cormorant",Georgia,serif;font-style:italic;font-weight:500;color:#3a3f6b;line-height:1.15;page-break-after:avoid}
+h1.ch{font-size:2em;margin:.4em 0 .3em}
+h2{font-size:1.45em;margin:1.4em 0 .5em}
+h3{font-size:1em;text-transform:uppercase;letter-spacing:.2em;font-style:normal;color:#b4627a;margin:1.3em 0 .4em}
+.chapno{text-transform:uppercase;letter-spacing:.3em;font-size:.8em;color:#b4627a;margin:1.2em 0 .2em}
+.tagline{font-style:italic;color:#6b6275}
+.meta{font-size:.72em;letter-spacing:.14em;text-transform:uppercase;color:#b98d45}
+.meta span{margin-right:1em}
+.skillrow{font-size:.8em;color:#6b6275}
+code{font-family:monospace;font-size:.82em;background:#e9e2ee;color:#3a3f6b;padding:0 .25em}
+img{max-width:100%;height:auto}
+figure{margin:1.2em 0;page-break-inside:avoid;text-align:center}
+figure svg{max-width:100%;height:auto}
+figcaption{font-family:"Hand",cursive;color:#6b6275;font-size:1.05em}
+blockquote.pull{margin:1.2em 0;padding-left:1em;border-left:3px solid #b98d45;font-family:"Cormorant",Georgia,serif;font-style:italic;font-size:1.25em;color:#3a3f6b}
+.note{font-family:"Hand",cursive;color:#b4627a;font-size:1.25em;margin:1em 0 1em .5em}
+.card,.care{margin:1.2em 0;padding:.7em 1em;border-radius:6px;page-break-inside:avoid}
+.card{background:#e9e2ee}.care{background:#fbece6;border-left:3px solid #c98a6a}
+.card h3,.care h3{margin-top:0}
+aside.example{background:#f3ead9;border-radius:6px;padding:.7em 1em;margin:1.2em 0}
+aside.example .eh{font-size:.68em;letter-spacing:.16em;text-transform:uppercase;color:#b98d45}
+aside.example .et{font-family:"Cormorant",Georgia,serif;font-style:italic;font-size:1.15em;color:#3a3f6b}
+.prompt{margin:1.2em 0;border:1px solid #d9cfe0;border-left:3px solid #b4627a;border-radius:4px;padding:.6em .9em;page-break-inside:avoid}
+.prompt .ph{font-family:"Cormorant",Georgia,serif;font-style:italic;color:#3a3f6b}
+.prompt .ph span{font-family:sans-serif;font-style:normal;font-size:.62em;letter-spacing:.18em;text-transform:uppercase;color:#b4627a;margin-right:.7em}
+.prompt pre{margin:.4em 0 0;font-family:monospace;font-size:.78em;white-space:pre-wrap;background:#fbf6ee;padding:.5em .7em}
+.prompt a.go{display:inline-block;margin-top:.5em;font-family:sans-serif;font-size:.65em;letter-spacing:.12em;text-transform:uppercase;color:#fff;background:#3a3f6b;padding:.35em .9em;border-radius:1em;text-decoration:none}
+.prompt .pnote{display:none}
+.sample{margin:1em 0;border:1px dashed #b98d45;padding:.5em .9em;page-break-inside:avoid}
+.sample .sh{font-size:.65em;letter-spacing:.16em;text-transform:uppercase;color:#b98d45}
+.sample pre{margin:.3em 0 0;font-family:"EBG",Georgia,serif;white-space:pre-wrap}
+ol.steps li{margin-bottom:.5em}
+ul.toc{list-style:none;padding:0}
+ul.toc li{margin:.35em 0}ul.toc li.part{text-transform:uppercase;letter-spacing:.2em;font-size:.75em;color:#b4627a;margin-top:1.1em}
+ul.toc a{text-decoration:none;color:#3a3f6b}
+.legal{font-family:sans-serif;font-size:.72em;color:#6b6275}
+.epi{font-family:"Cormorant",Georgia,serif;font-style:italic;font-size:1.35em;color:#3a3f6b;text-align:center;margin:3em 0}
+.epi small{display:block;margin-top:1em;font-style:normal;letter-spacing:.2em;text-transform:uppercase;font-size:.55em;color:#6b6275}
+.front{text-align:center}
+.tpage h1{font-size:2.6em}
+p.sk{text-align:left;font-size:.92em}p.sk .w{font-size:.7em;color:#b98d45;margin-left:.5em}
+.credits-t{width:100%;border-collapse:collapse;font-size:.85em}.credits-t td{padding:.3em;border-bottom:1px solid #e9e2ee;vertical-align:top}
+.cover img,.hero img,.partpage img,.spread img{width:100%}

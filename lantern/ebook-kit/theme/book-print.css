@@ -1,0 +1,135 @@
+/* The Lantern Hours: print/reader PDF stylesheet. @page size/margins are injected by assemble.mjs. */
+@font-face{font-family:"Cormorant";font-weight:400;font-style:normal;src:url("{{FONTS}}/cormorant-garamond-latin-400-normal.woff2")}
+@font-face{font-family:"Cormorant";font-weight:400;font-style:italic;src:url("{{FONTS}}/cormorant-garamond-latin-400-italic.woff2")}
+@font-face{font-family:"Cormorant";font-weight:500;font-style:normal;src:url("{{FONTS}}/cormorant-garamond-latin-500-normal.woff2")}
+@font-face{font-family:"Cormorant";font-weight:500;font-style:italic;src:url("{{FONTS}}/cormorant-garamond-latin-500-italic.woff2")}
+@font-face{font-family:"Cormorant";font-weight:600;font-style:normal;src:url("{{FONTS}}/cormorant-garamond-latin-600-normal.woff2")}
+@font-face{font-family:"Cormorant";font-weight:600;font-style:italic;src:url("{{FONTS}}/cormorant-garamond-latin-600-italic.woff2")}
+@font-face{font-family:"EBG";font-weight:400;font-style:normal;src:url("{{FONTS}}/eb-garamond-latin-400-normal.woff2")}
+@font-face{font-family:"EBG";font-weight:400;font-style:italic;src:url("{{FONTS}}/eb-garamond-latin-400-italic.woff2")}
+@font-face{font-family:"Playfair";font-weight:400;font-style:normal;src:url("{{FONTS}}/playfair-display-latin-400-normal.woff2")}
+@font-face{font-family:"Hand";font-weight:400;src:url("{{FONTS}}/caveat-latin-400-normal.woff2")}
+@font-face{font-family:"Sans";font-weight:400;src:url("{{FONTS}}/inter-latin-400-normal.woff2")}
+@font-face{font-family:"JB";font-weight:400;src:url("{{FONTS}}/jetbrains-mono-latin-400-normal.woff2")}
+
+:root{--paper:#fbf6ee;--ink:#2b2433;--soft:#6b6275;--rose:#b4627a;--gold:#b98d45;--dusk:#3a3f6b;--mist:#e9e2ee;--cream:#f3ead9;--line:#d9cfe0}
+*{box-sizing:border-box}
+html{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:"EBG",Georgia,serif;font-size:10.8pt;line-height:1.56;font-feature-settings:"liga","kern"}
+
+/* ---------- full-page pieces ---------- */
+.fp{position:relative;width:var(--pw);height:var(--ph);overflow:hidden;break-before:page;break-after:page}
+.cover{page:cover;color:#fff;background:#2a2f5e}
+.cover img.bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.cover .veil{position:absolute;inset:0;background:linear-gradient(180deg,rgba(20,16,44,.55) 0%,rgba(20,16,44,.05) 40%,rgba(14,10,34,.7) 100%)}
+.cover .ctitle{position:absolute;left:0;right:0;top:calc(1.05in + var(--b));text-align:center;padding:0 .7in}
+.cover .kicker{font-family:"Cormorant";text-transform:uppercase;letter-spacing:.42em;font-size:8.5pt;margin:0 0 .22in;opacity:.92}
+.cover h1{font-family:"Cormorant";font-weight:500;font-style:italic;font-size:50pt;line-height:.98;margin:0 0 .2in;text-shadow:0 2px 26px rgba(0,0,0,.4)}
+.cover .sub{font-style:italic;font-size:12pt;line-height:1.35;margin:0 auto;max-width:3.7in;opacity:.95}
+.cover .cby{position:absolute;left:0;right:0;bottom:calc(.75in + var(--b));text-align:center;font-family:"Cormorant";letter-spacing:.38em;text-transform:uppercase;font-size:10pt}
+.cover .cby::before{content:"";display:block;width:.7in;height:1px;background:rgba(255,255,255,.6);margin:0 auto .16in}
+.front{page:front;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:0 .9in}
+.front.top{justify-content:flex-start;padding-top:calc(.9in + var(--b))}
+.half{font-family:"Cormorant";font-style:italic;font-size:22pt;color:var(--dusk)}
+.tpage h1{font-family:"Cormorant";font-weight:500;font-style:italic;font-size:42pt;line-height:1;margin:0 0 .18in;color:var(--dusk)}
+.tpage .sub{font-style:italic;font-size:12.5pt;color:var(--soft);max-width:3.8in;margin:0 auto}
+.tpage .by{font-family:"Cormorant";letter-spacing:.34em;text-transform:uppercase;font-size:10pt;color:var(--rose)}
+.orn{font-family:"Cormorant";color:var(--gold);letter-spacing:.9em;margin:.3in 0;font-size:12pt;text-align:center}
+.legal{font-family:"Sans";font-size:6.9pt;line-height:1.55;color:var(--soft);text-align:left;max-width:4in}
+.legal p{margin:0 0 .09in;text-align:left}
+.epi{font-family:"Cormorant";font-style:italic;font-size:17pt;line-height:1.5;color:var(--dusk);max-width:3.8in}
+.epi small{display:block;margin-top:.22in;font-family:"Cormorant";font-style:normal;letter-spacing:.26em;text-transform:uppercase;font-size:8.5pt;color:var(--soft)}
+
+.partpage{page:opener;color:#fff;background:#222}
+.partpage img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.partpage .veil{position:absolute;inset:0;background:linear-gradient(180deg,rgba(20,16,44,.1),rgba(14,10,34,.72))}
+.partpage .txt{position:absolute;left:.8in;right:.8in;bottom:calc(1.6in + var(--b))}
+.partpage .pn{font-family:"Cormorant";letter-spacing:.42em;text-transform:uppercase;font-size:10pt;opacity:.9;margin:0 0 .12in}
+.partpage h1{font-family:"Cormorant";font-weight:500;font-style:italic;font-size:38pt;line-height:1.02;margin:0;text-shadow:0 2px 22px rgba(0,0,0,.45)}
+
+.opener{page:opener;background:var(--paper)}
+.opener .hero{position:absolute;top:0;left:0;right:0;height:calc(3.7in + var(--b));overflow:hidden}
+.opener .hero img{width:100%;height:100%;object-fit:cover;display:block}
+.opener .hero::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(35,28,60,0) 55%,var(--paper) 100%)}
+.opener .head{position:absolute;top:calc(3.35in + var(--b));left:.85in;right:.85in}
+.chapno{font-family:"Cormorant";text-transform:uppercase;letter-spacing:.42em;font-size:8.5pt;color:var(--rose);margin:0 0 .08in}
+h1.ch{font-family:"Cormorant";font-weight:500;font-style:italic;font-size:32pt;line-height:1.04;margin:0 0 .12in;color:var(--dusk)}
+.tagline{font-style:italic;color:var(--soft);font-size:12pt;line-height:1.35;margin:0 0 .22in;max-width:4in}
+.meta{margin:0 0 .16in;font-family:"Sans";font-size:6.8pt;letter-spacing:.16em;text-transform:uppercase;color:var(--gold)}
+.meta span{margin-right:.2in}
+.skillrow{font-family:"Sans";font-size:7.3pt;line-height:1.7;color:var(--soft)}
+.skillrow b{font-weight:400;letter-spacing:.16em;text-transform:uppercase;font-size:6.6pt;color:var(--rose);margin-right:.08in}
+.skillrow code{font-family:"JB",monospace;font-size:7pt;color:var(--dusk);background:var(--mist);padding:1px 5px;border-radius:3px;margin-right:4px;white-space:nowrap}
+.opener .intro{position:absolute;left:.85in;right:.85in;bottom:calc(.85in + var(--b));font-style:italic;color:var(--soft);font-size:10pt;line-height:1.45}
+
+/* ---------- reading text ---------- */
+.cbody{break-before:page}
+p{margin:0 0 .12in;text-align:justify;hyphens:auto;orphans:3;widows:3}
+p.first::first-letter{font-family:"Playfair";float:left;font-size:44pt;line-height:.82;padding:.05in .08in 0 0;color:var(--rose)}
+p.first::first-line{font-variant:small-caps;letter-spacing:.05em}
+h2{font-family:"Cormorant";font-weight:500;font-style:italic;font-size:19pt;color:var(--dusk);margin:.28in 0 .1in;line-height:1.12;break-after:avoid}
+h3{font-family:"Cormorant";text-transform:uppercase;letter-spacing:.28em;font-size:8.6pt;color:var(--rose);margin:.22in 0 .08in;font-weight:600;break-after:avoid}
+em{color:var(--dusk)}
+strong{font-weight:400;color:var(--ink);font-family:"EBG";border-bottom:1px solid #d8cdb7}
+code{font-family:"JB",monospace;font-size:.78em;background:var(--mist);color:var(--dusk);padding:.5px 4px;border-radius:3px;white-space:nowrap}
+ul,ol{margin:.08in 0 .14in;padding-left:.28in}
+li{margin-bottom:.05in;text-align:left;orphans:2;widows:2}
+blockquote.pull{margin:.22in 0;padding:.02in 0 .02in .22in;border-left:2px solid var(--gold);font-family:"Cormorant";font-style:italic;font-size:15.5pt;line-height:1.36;color:var(--dusk);break-inside:avoid}
+.note{font-family:"Hand";color:var(--rose);font-size:14pt;line-height:1.12;transform:rotate(-1.2deg);margin:.14in 0 .16in .1in;max-width:3.6in;break-inside:avoid}
+.card,.care{border-radius:6px;padding:.16in .22in;margin:.2in 0;font-size:10pt;break-inside:avoid}
+.card{background:var(--mist)}
+.care{background:#fbece6;border-left:3px solid #c98a6a}
+.card h3,.care h3{margin-top:0}
+.card p:last-child,.care p:last-child{margin-bottom:0}
+.card ul,.care ul{margin-bottom:0}
+aside.example{background:var(--cream);border-radius:6px;padding:.14in .2in .08in;margin:.2in 0;font-size:10pt;break-inside:avoid-page}
+aside.example .eh{font-family:"Sans";font-size:6.3pt;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);margin-bottom:.04in}
+aside.example .et{font-family:"Cormorant";font-style:italic;font-weight:600;font-size:13pt;color:var(--dusk);margin-bottom:.06in}
+.prompt{margin:.18in 0;border:1px solid var(--line);border-left:3px solid var(--rose);border-radius:4px;background:#fff;padding:.09in .15in .12in;break-inside:avoid}
+.prompt .ph{font-family:"Cormorant";font-style:italic;font-size:11.5pt;color:var(--dusk);margin-bottom:.05in}
+.prompt .ph span{font-family:"Sans";font-style:normal;font-size:6pt;letter-spacing:.2em;text-transform:uppercase;color:var(--rose);margin-right:.1in}
+.prompt pre{margin:0;font-family:"JB",monospace;font-size:7.4pt;line-height:1.5;white-space:pre-wrap;word-break:break-word;color:var(--ink);background:var(--paper);padding:.07in .1in;border-radius:3px}
+.prompt a.go{display:inline-block;margin-top:.08in;font-family:"Sans";font-size:6.4pt;letter-spacing:.14em;text-transform:uppercase;color:#fff;background:var(--dusk);padding:.04in .13in;border-radius:20px;text-decoration:none}
+.prompt .pnote{margin-top:.06in;font-family:"Sans";font-size:6.2pt;letter-spacing:.1em;color:var(--soft);text-transform:uppercase}
+.sample{margin:.16in 0;border:1px dashed var(--gold);border-radius:4px;background:#fffdf7;padding:.08in .15in .1in;break-inside:avoid}
+.sample .sh{font-family:"Sans";font-size:6.3pt;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);margin-bottom:.04in}
+.sample pre{margin:0;font-family:"EBG",serif;font-size:9.6pt;line-height:1.45;white-space:pre-wrap;color:var(--ink)}
+ol.steps{counter-reset:s;list-style:none;padding:0;margin:.12in 0 .16in}
+ol.steps li{counter-increment:s;position:relative;padding:.06in 0 .07in .44in;border-bottom:1px solid var(--mist);break-inside:avoid}
+ol.steps li::before{content:counter(s);position:absolute;left:0;top:.055in;width:.28in;height:.28in;border-radius:50%;background:var(--rose);color:#fff;font:7.5pt/.28in "Sans";text-align:center}
+figure{margin:.18in 0;break-inside:avoid}
+figure.diagram{text-align:center}
+figure.diagram svg{width:100%;height:auto;max-height:5.3in}
+figure.photo img{width:100%;height:2.15in;object-fit:cover;display:block;border-radius:4px}
+figcaption{font-family:"Hand";color:var(--soft);font-size:11.5pt;line-height:1.15;padding-top:.05in;text-align:center}
+.spread{page:opener;position:relative;width:var(--pw);height:var(--ph);overflow:hidden;break-before:page;break-after:page}
+.spread img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.spread::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,0) 45%,rgba(20,14,36,.72) 100%)}
+.spread p{position:absolute;left:.85in;right:.85in;bottom:calc(.95in + var(--b));z-index:2;color:#fff;font-family:"Cormorant";font-style:italic;font-size:19pt;line-height:1.28;text-align:left;margin:0;text-shadow:0 2px 16px rgba(0,0,0,.5)}
+
+/* ---------- contents ---------- */
+.tocpage{page:front;break-before:page}
+.tocpage h2{margin-top:0;font-size:24pt;text-align:center}
+ul.toc{list-style:none;padding:0;margin:.15in 0}
+ul.toc li{margin:0;text-align:left}
+ul.toc li.part{font-family:"Cormorant";text-transform:uppercase;letter-spacing:.28em;font-size:8.3pt;color:var(--rose);margin:.17in 0 .04in}
+ul.toc a{display:flex;align-items:baseline;color:inherit;text-decoration:none;font-size:10.2pt}
+ul.toc .n{width:.32in;font-family:"Cormorant";font-style:italic;color:var(--gold);font-size:11pt}
+ul.toc .t{font-family:"Cormorant";font-style:italic;font-size:12.6pt;color:var(--dusk)}
+ul.toc .dots{flex:1;border-bottom:1px dotted #bdb2c6;margin:0 .07in;transform:translateY(-.03in)}
+ul.toc .pg{font-family:"Sans";font-size:8pt;color:var(--soft)}
+ul.toc li.sub a .t{font-size:11.6pt}
+
+/* appendix A directory */
+.skgrp{break-before:auto}
+p.sk{margin:0 0 .09in;text-align:left;break-inside:avoid;font-size:9.8pt;line-height:1.38}
+p.sk .w{font-family:"Sans";font-size:6.6pt;color:var(--gold);letter-spacing:.1em;margin-left:.06in}
+p.sk em{color:var(--soft)}
+.credits-t{font-size:9.6pt;width:100%;border-collapse:collapse}
+.credits-t td{padding:.04in .06in;border-bottom:1px solid var(--mist);vertical-align:top;text-align:left}
+.back{page:front;background:var(--dusk);color:#fff}
+.back .epi{color:#fff}
+.back .epi small{color:rgba(255,255,255,.7)}
+@media print{a{color:inherit}}
+body.print .prompt a.go{display:none}
+body.reader .prompt .pnote{display:none}
