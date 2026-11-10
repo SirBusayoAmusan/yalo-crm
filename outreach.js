@@ -8,17 +8,54 @@
   const $ = id => document.getElementById(id);
   const esc = YO.esc;
   const live = () => leads.filter(l => !l._deleted);
-  const sender = () => ({ name: settings.name, company: settings.company });
+  const brandProfile = lead => (window.SALES ? SALES.profileFor(lead) : null);
+  // The sender line follows the brand of the lead: YALO emails sign off as YALO, Clearpath QR ones as Clearpath QR.
+  const senderFor = lead => {
+    const b = YS_brandOf(lead);
+    return { name: settings.name, title: settings.title, company: b === 'clearpath' ? 'Clearpath QR' : (settings.company || 'YALO') };
+  };
+  const YS_brandOf = lead => (window.YS ? YS.brandOf(lead) : 'yalo');
   const fmtDay = d => d ? new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '';
   const fullName = c => (c && c.name) || 'this person';
 
   function templatesFor(type) {
-    const arr = type === 'employer' ? (typeof EMPLOYER_SCRIPTS !== 'undefined' ? EMPLOYER_SCRIPTS : []) : (typeof OFFICE_SCRIPTS !== 'undefined' ? OFFICE_SCRIPTS : []);
-    return arr.map(s => ({ label: s.label, subject: s.subject, body: s.body }));
+    const legacy = {
+      office: typeof OFFICE_SCRIPTS !== 'undefined' ? OFFICE_SCRIPTS.map(s => ({ label: s.label, subject: s.subject, body: s.body })) : [],
+      employer: typeof EMPLOYER_SCRIPTS !== 'undefined' ? EMPLOYER_SCRIPTS.map(s => ({ label: s.label, subject: s.subject, body: s.body })) : []
+    };
+    return window.YS ? YS.templatesFor(type, legacy) : (legacy[type] || []);
   }
   function composed(lead, ci, idx) {
-    const r = YO.renderStep(lead, ci, idx, templatesFor);
-    return { label: r.label, subject: r.subject, body: YO.addFooter(r.body, sender()), source: r.source, type: r.type };
+    const r = YO.renderStep(lead, ci, idx, templatesFor, { brand: brandProfile(lead), sender: senderFor(lead) });
+    const body = r.channel === 'email' ? YO.addFooter(r.body, senderFor(lead)) : r.body;
+    return { label: r.label, subject: r.subject, body, source: r.source, type: r.type, channel: r.channel, day: r.day };
+  }
+  const CH = { email: ['✉', 'Email'], dm: ['💬', 'DM'], comment: ['🗨', 'Comment'] };
+  const chTag = ch => `${(CH[ch] || CH.email)[0]} ${(CH[ch] || CH.email)[1]}`;
+  const profileUrl = c => { const u = YO.clean((c && (c.social || c.linkedin)) || '', 500); return u ? (/^https?:\/\//i.test(u) ? u : 'https://' + u) : ''; };
+  // The buttons for one step: a primary row (send or copy, then "I sent it") and the rest under "More".
+  function stepActions(lead, ci, idx, f) {
+    const c = (lead.contacts || [])[ci] || {}, lid = esc(lead.id), to = YO.normEmail(c.email);
+    const more = []; let primary = '';
+    if (f.channel === 'email') {
+      if (!to) primary = `<div class="oq-sub" style="margin-bottom:8px">No email address yet.</div><button class="btn btn-ghost btn-sm" onclick="OUT.open('${lid}',${ci},'overview')">Add email</button>`;
+      else {
+        primary = `<div class="oq-primary">
+          <a class="btn btn-ghost btn-sm" target="_blank" rel="noopener" href="${esc(YO.gmail(to, f.subject, f.body))}">✉ Gmail</a>
+          <a class="btn btn-ghost btn-sm" href="${esc(YO.mailto(to, f.subject, f.body))}">📱 Mail app</a>
+          <button class="btn btn-g btn-sm oq-go" onclick="OUT.sent('${lid}',${ci},${idx})">✓ I sent it</button></div>`;
+        more.push(`<button class="btn btn-ghost btn-sm" onclick="OUT.copy('${lid}',${ci},${idx})">📋 Copy</button>`);
+      }
+    } else {
+      const url = profileUrl(c);
+      primary = `<div class="oq-primary">
+        <button class="btn btn-ghost btn-sm" onclick="OUT.copy('${lid}',${ci},${idx})">📋 Copy message</button>
+        ${url ? `<a class="btn btn-ghost btn-sm" target="_blank" rel="noopener" href="${esc(url)}">↗ Open profile</a>` : `<button class="btn btn-ghost btn-sm" onclick="OUT.setSocial('${lid}',${ci})">＋ Profile link</button>`}
+        <button class="btn btn-g btn-sm oq-go" onclick="OUT.sent('${lid}',${ci},${idx})">✓ I sent it</button></div>`;
+      if (url) more.push(`<button class="btn btn-ghost btn-sm" onclick="OUT.setSocial('${lid}',${ci})">🔗 Change link</button>`);
+    }
+    if (window.SALES) more.push(`<button class="btn btn-ghost btn-sm" onclick="SALES.personalise('${lid}',${ci},${idx})">✨ Personalise</button>`);
+    return { primary, more };
   }
   const findLead = id => leads.find(x => x.id === id);
   async function save(lead) { await window.FB.saveLead(lead); }
@@ -134,47 +171,52 @@
      EMAIL QUEUE TAB
      ==================================================================== */
   function cardHtml(item) {
-    const { lead, ci, idx, when, due, noEmail } = item;
+    const { lead, ci, idx, when, due } = item;
     const c = (lead.contacts || [])[ci] || {};
     const f = composed(lead, ci, idx);
+    const st = YO.seqState(lead, ci);
+    const total = st ? st.steps.length : YO.STEPS;
     const left = YO.leftoverTokens(f.subject + ' ' + f.body);
     const tag = when === 'overdue' ? `<span class="oq-tag r">⚠ ${Math.max(1, Math.round((Date.now() - due) / 86400000))}d overdue</span>`
       : when === 'today' ? '<span class="oq-tag a">Due today</span>' : `<span class="oq-tag">Due ${fmtDay(due)}</span>`;
     const lid = esc(lead.id);
     const to = YO.normEmail(c.email);
-    let actions;
-    if (when === 'upcoming') actions = `<button class="btn btn-ghost btn-sm" onclick="OUT.open('${lid}',${ci})">Open</button>`;
-    else if (noEmail) actions = `<div class="oq-sub" style="margin-bottom:8px">No email address yet.</div><button class="btn btn-ghost btn-sm" onclick="OUT.open('${lid}',${ci},'overview')">Add email</button>`;
-    else actions = `<div class="oq-primary">
-        <a class="btn btn-ghost btn-sm" target="_blank" rel="noopener" href="${esc(YO.gmail(to, f.subject, f.body))}">✉ Gmail</a>
-        <a class="btn btn-ghost btn-sm" href="${esc(YO.mailto(to, f.subject, f.body))}">📱 Mail app</a>
-        <button class="btn btn-g btn-sm oq-go" onclick="OUT.sent('${lid}',${ci},${idx})">✓ I sent it</button></div>`;
+    const act = stepActions(lead, ci, idx, f);
     const more = [];
-    if (when !== 'upcoming' && !noEmail) more.push(`<button class="btn btn-ghost btn-sm" onclick="OUT.copy('${lid}',${ci},${idx})">📋 Copy</button>`, `<button class="btn btn-ghost btn-sm" onclick="OUT.open('${lid}',${ci})">✏️ Edit</button>`);
-    if (c.phone && when !== 'upcoming') {
-      more.push(`<a class="btn btn-ghost btn-sm" href="tel:${esc(c.phone)}">📞 Call</a>`);
-      const wa = YO.waLink(c.phone, ''); if (wa) more.push(`<a class="btn btn-ghost btn-sm" target="_blank" rel="noopener" href="${esc(wa)}">💬 WhatsApp</a>`);
+    const needsEmail = f.channel === 'email' && !to;
+    if (when === 'upcoming') { /* only an Open button */ }
+    else {
+      if (!needsEmail) more.push(`<button class="btn btn-ghost btn-sm" onclick="OUT.open('${lid}',${ci})">✏️ Edit</button>`);
+      act.more.forEach(x => more.push(x));
+      if (window.SALES) more.push(`<button class="btn btn-ghost btn-sm" onclick="SALES.call('${lid}',${ci})">📞 Call mode</button>`);
+      if (c.phone) { const wa = YO.waLink(c.phone, ''); if (wa) more.push(`<a class="btn btn-ghost btn-sm" target="_blank" rel="noopener" href="${esc(wa)}">💬 WhatsApp</a>`); }
+      if (c && c.name && !needsEmail) {
+        more.push(`<button class="btn btn-ghost btn-sm" onclick="OUT.replied('${lid}',${ci})">↩ They replied</button>`);
+        more.push(`<button class="btn btn-ghost btn-sm" style="color:var(--red)" onclick="OUT.dnc('${lid}',${ci})">⛔ Don't contact</button>`);
+      }
     }
-    if (c && c.name && when !== 'upcoming' && !noEmail) {
-      more.push(`<button class="btn btn-ghost btn-sm" onclick="OUT.replied('${lid}',${ci})">↩ They replied</button>`);
-      more.push(`<button class="btn btn-ghost btn-sm" style="color:var(--red)" onclick="OUT.dnc('${lid}',${ci})">⛔ Don't contact</button>`);
-    }
-    const moreBox = more.length ? `<details class="oq-more"><summary>More</summary><div class="oq-more-grid">${more.join('')}</div></details>` : '';
+    const actions = when === 'upcoming' ? `<button class="btn btn-ghost btn-sm" onclick="OUT.open('${lid}',${ci})">Open</button>` : act.primary;
+    const moreBox = more.length && when !== 'upcoming' ? `<details class="oq-more"><summary>More</summary><div class="oq-more-grid">${more.join('')}</div></details>` : '';
     const leaseBox = left.includes('[LEASE]') && when !== 'upcoming' ? `
       <div class="oq-warn">⚠ This email needs the company's annual rent.
         <input class="fi" id="lease-${lid}" type="number" placeholder="e.g. 12000000" style="width:150px;padding:6px 10px">
         <button class="btn btn-g btn-sm" onclick="OUT.setLease('${lid}')">Save</button></div>` : '';
-    const otherLeft = left.filter(t => t !== '[LEASE]');
-    const otherWarn = otherLeft.length && when !== 'upcoming' ? `<div class="oq-warn">⚠ Fill in ${esc(otherLeft.join(', '))} before sending (use ✏️ Edit).</div>` : '';
+    const hookBox = left.includes('[HOOK]') && when !== 'upcoming' ? `
+      <div class="oq-warn">⚠ Add one line about what they did, so this does not read as a template.
+        <input class="fi" id="hook-${lid}" placeholder="e.g. their video on growing to 10k subs" style="min-width:220px;flex:1;padding:6px 10px">
+        <button class="btn btn-g btn-sm" onclick="OUT.setHook('${lid}')">Save</button></div>` : '';
+    const otherLeft = left.filter(x => x !== '[LEASE]' && x !== '[HOOK]');
+    const otherWarn = otherLeft.length && when !== 'upcoming' ? `<div class="oq-warn">⚠ Fill in ${esc(otherLeft.join(', '))} before sending. Use ✏️ Edit, or ✨ Personalise.</div>` : '';
+    const where = f.channel === 'email' ? (to ? ' · ' + esc(to) : '') : '';
     return `<div class="oq-card ${when === 'overdue' ? 'od' : ''}">
       <div class="oq-top">
         <div class="oq-who">
           <div class="oq-name">${esc(c.name || '(no contact yet)')}${c.title ? ` <span style="font-weight:500;color:var(--muted)">· ${esc(c.title)}</span>` : ''}</div>
-          <div class="oq-sub"><a onclick="OUT.open('${lid}',${ci},'overview')" style="cursor:pointer;color:var(--g)">${esc(lead.company)}</a> · Email ${idx + 1} of ${YO.STEPS}: ${esc(f.label)}${to ? ' · ' + esc(to) : ''}</div>
+          <div class="oq-sub"><a onclick="OUT.open('${lid}',${ci},'overview')" style="cursor:pointer;color:var(--g)">${esc(lead.company)}</a> · ${chTag(f.channel)} ${idx + 1} of ${total}: ${esc(f.label)}${where}</div>
         </div>${tag}
       </div>
-      ${when !== 'upcoming' && !noEmail ? `<div class="oq-prev"><b>${esc(f.subject)}</b>\n${esc(f.body.split('\n').slice(0, 4).join('\n'))}…</div>` : ''}
-      ${leaseBox}${otherWarn}
+      ${when !== 'upcoming' && !needsEmail ? `<div class="oq-prev">${f.subject ? `<b>${esc(f.subject)}</b>\n` : ''}${esc(f.body.split('\n').slice(0, 4).join('\n'))}…</div>` : ''}
+      ${leaseBox}${hookBox}${otherWarn}
       ${actions}${moreBox}
     </div>`;
   }
@@ -223,7 +265,7 @@
     async copy(leadId, ci, idx) {
       const l = findLead(leadId); if (!l) return;
       const f = composed(l, ci, idx);
-      try { await navigator.clipboard.writeText('Subject: ' + f.subject + '\n\n' + f.body); toast('Copied'); }
+      try { await navigator.clipboard.writeText(f.channel === 'email' ? 'Subject: ' + f.subject + '\n\n' + f.body : f.body); toast('Copied'); }
       catch (e) { warn('Could not copy. Long-press the text instead.'); }
     },
     async sent(leadId, ci, idx) {
@@ -264,13 +306,28 @@
     async start(leadId, ci) {
       const l = findLead(leadId); if (!l) return;
       const sel = $('seq-type'); const type = sel && sel.value ? sel.value : null;
-      const r = YO.startSequence(l, ci, new Date(), type);
-      if (r === 'no_email') return warn('Add an email address for this person first.');
+      const c = (l.contacts || [])[ci];
+      const meta = window.YS ? YS.sequenceMeta(l, c, type) : { type: type || null };
+      const r = YO.startSequence(l, ci, new Date(), meta.type, meta);
+      if (r === 'no_email') return warn('Add an email address or a profile link for this person first.');
       if (r === 'dnc') return warn('This person is marked do-not-contact.');
       await save(l);
-      await addAct({ leadId: l.id, type: 'email', company: l.company, desc: `Email sequence started for ${fullName((l.contacts || [])[ci])}` });
-      toast('Sequence started. First email is due now.');
+      await addAct({ leadId: l.id, type: 'email', company: l.company, desc: `Sequence started for ${fullName(c)}` });
+      toast('Sequence started. The first step is due now.');
       OUT.refresh();
+    },
+    async setSocial(leadId, ci) {
+      const l = findLead(leadId); const c = l && (l.contacts || [])[ci]; if (!c) return;
+      const v = prompt('Paste their YouTube, Instagram, X or LinkedIn link:', c.social || c.linkedin || '');
+      if (v == null) return;
+      c.social = YO.clean(v, 500); await save(l); toast('Link saved'); OUT.refresh();
+    },
+    async setHook(leadId) {
+      const l = findLead(leadId); if (!l) return;
+      const el = $('hook-' + leadId) || $('hook-drawer');
+      const v = YO.clean(el && el.value, 300);
+      if (!v) return warn('Write one short line first.');
+      l.hook = v; await save(l); toast('Saved'); OUT.refresh();
     },
     async pause(leadId, ci, flag) {
       const l = findLead(leadId); if (!l) return;
@@ -310,10 +367,26 @@
       if (mo && mo.classList.contains('open') && curDTab === 'emails') renderEmailsTab();
       refreshNavBadge();
     },
+    persistDnc,
     openImport() { setup(); impReset(); $('imp-mo').classList.add('open'); },
     closeImport() { $('imp-mo').classList.remove('open'); }
   };
   let outCi = 0;
+  function seqOptions(l, c, current) {
+    const auto = window.YS ? YS.autoSeqType(l, c) : null;
+    const names = window.YS ? YS.SEQUENCES : {};
+    const own = window.YS ? YS.seqIdsForBrand(YS.brandOf(l)) : [];
+    let h = `<option value="">Auto${auto && names[auto] ? ' (' + esc(names[auto].name) + ')' : ''}</option>`;
+    own.forEach(id => { h += `<option value="${id}" ${current === id ? 'selected' : ''}>${esc(names[id].name)}</option>`; });
+    h += `<option value="office" ${current === 'office' ? 'selected' : ''}>Older script: office lease</option><option value="employer" ${current === 'employer' ? 'selected' : ''}>Older script: employer</option>`;
+    return h;
+  }
+  // The day of a step counted from the first step (new sequences carry their own spacing).
+  function stepDay(l, ci, i) {
+    const st = YO.seqState(l, ci); const g = st && st.gaps;
+    if (g) return g.slice(0, i + 1).reduce((a, b) => a + (b || 0), 0);
+    return YO.EDAYS[i] != null ? YO.EDAYS[i] : i * 7;
+  }
 
   /* ====================================================================
      DRAWER: Emails tab (per person)
@@ -346,8 +419,8 @@
       el.innerHTML = chips + head + (c ? `
         <div class="card" style="padding:16px">
           <div style="font-weight:700;margin-bottom:6px">No email sequence running for ${esc(fullName(c))}</div>
-          <div class="oq-sub" style="margin-bottom:12px">${to ? 'Start the 7-email sequence. The first email is due straight away, then each next email is timed from when you tap “I sent it”.' : 'Add an email address (Overview → Edit) to start a sequence.'}</div>
-          ${to && !c.dnc ? `<div class="oq-acts"><select class="fsel" id="seq-type"><option value="">Auto (${YO.autoType(l) === 'employer' ? 'employer pitch' : 'office-lease pitch'})</option><option value="office">Office-lease pitch</option><option value="employer">Employer pitch</option></select>
+          <div class="oq-sub" style="margin-bottom:12px">${(to || profileUrl(c)) ? 'Start the sequence. The first step is due straight away, then each next step is timed from when you tap “I sent it”.' : 'Add an email address (Overview → Edit) or a profile link to start a sequence.'}</div>
+          ${(to || profileUrl(c)) && !c.dnc ? `<div class="oq-acts"><select class="fsel" id="seq-type">${seqOptions(l, c, '')}</select>
           <button class="btn btn-g btn-sm" onclick="OUT.start('${lid}',${outCi})">▶ Start sequence</button></div>` : ''}
         </div>
         ${c ? `<div class="oq-acts" style="margin-top:12px"><button class="btn btn-ghost btn-sm" style="color:var(--red)" onclick="OUT.dnc('${lid}',${outCi})">${c.dnc ? 'Remove do-not-contact' : "⛔ Don't contact"}</button></div>` : ''}` : '<div class="oq-sub">No contacts on this lead yet. Add one on the Overview tab.</div>');
@@ -358,16 +431,18 @@
     const due = YO.dueDate(st);
     const sentCount = st.steps.filter(s => s && ['sent', 'opened', 'replied'].includes(s.status)).length;
     const lastSent = st.steps.reduce((a, s, i) => (s && ['sent', 'opened', 'replied'].includes(s.status) ? i : a), -1);
-    const type = (c && c.seq && c.seq.type) || l.seqType || YO.autoType(l);
+    const type = (c && c.seq && c.seq.type) || l.seqType || (window.YS ? YS.autoSeqType(l, c) : YO.autoType(l));
+    const typeName = window.YS && YS.SEQUENCES[type] ? YS.SEQUENCES[type].name : (type === 'employer' ? 'employer pitch (older script)' : 'office-lease pitch (older script)');
     const status = reason ? `<span class="oq-tag ${reason === 'Replied' || reason === 'Sequence complete' ? '' : 'a'}">${esc(reason)}</span>`
-      : `Next: email ${nxt + 1} — ${esc(composed(l, outCi, nxt).label)} · due ${fmtDay(due)}`;
+      : `Next: ${chTag(composed(l, outCi, nxt).channel).toLowerCase()} ${nxt + 1} — ${esc(composed(l, outCi, nxt).label)} · due ${fmtDay(due)}`;
     const bars = st.steps.map(s => `<div style="flex:1;height:6px;border-radius:3px;background:${s.status === 'replied' ? 'var(--g)' : s.status === 'opened' ? 'var(--amber)' : s.status === 'sent' ? 'var(--blue)' : 'var(--border)'}"></div>`).join('');
     const controls = `<div class="oq-acts" style="margin:10px 0 14px">
-      ${c && c.seq ? `<select class="fsel" onchange="OUT.setType('${lid}',${outCi},this.value)"><option value="" ${!c.seq.type ? 'selected' : ''}>Auto</option><option value="office" ${c.seq.type === 'office' ? 'selected' : ''}>Office-lease pitch</option><option value="employer" ${c.seq.type === 'employer' ? 'selected' : ''}>Employer pitch</option></select>` : ''}
+      ${c && c.seq ? `<select class="fsel" onchange="OUT.setType('${lid}',${outCi},this.value)">${seqOptions(l, c, c.seq.type || '')}</select>` : ''}
       ${c && c.seq && !c.dnc && !(c.seq.stopped) ? `<button class="btn btn-ghost btn-sm" onclick="OUT.pause('${lid}',${outCi},${c.seq.paused ? 'false' : 'true'})">${c.seq.paused ? '▶ Resume' : '⏸ Pause'}</button>` : ''}
       ${c ? `<button class="btn btn-ghost btn-sm" style="color:var(--red)" onclick="OUT.dnc('${lid}',${outCi})">${c.dnc ? 'Remove do-not-contact' : "⛔ Don't contact"}</button>` : ''}
-      <input class="fi" id="lease-drawer" type="number" placeholder="Annual rent (N)" value="${l.lease || ''}" style="width:150px;padding:6px 10px" onchange="OUT.setLease('${lid}')">
-    </div>`;
+      ${YS_brandOf(l) === 'yalo' ? `<input class="fi" id="lease-drawer" type="number" placeholder="Annual rent (N)" value="${l.lease || ''}" style="width:150px;padding:6px 10px" onchange="OUT.setLease('${lid}')">` : ''}
+    </div>
+    ${YS_brandOf(l) === 'clearpath' ? `<div class="oq-acts" style="margin:-4px 0 14px"><input class="fi" id="hook-drawer" placeholder="What they did / why now (e.g. their video on growing to 10k subs)" value="${esc(l.hook || '')}" style="flex:1;min-width:220px;padding:8px 10px" onchange="OUT.setHook('${lid}')"><button class="btn btn-ghost btn-sm" onclick="OUT.setSocial('${lid}',${outCi})">🔗 Profile link</button></div>` : ''}`;
     const cards = st.steps.map((s, i) => {
       const f = composed(l, outCi, i);
       const isNext = i === nxt && !reason;
@@ -380,15 +455,10 @@
         dueLbl = d < 0 ? `<span style="color:var(--red);font-size:11px;font-weight:600">⚠ ${-d}d overdue</span>` : d === 0 ? '<span style="color:var(--amber);font-size:11px;font-weight:600">Due today</span>' : `<span style="color:var(--muted);font-size:11px">Due ${fmtDay(due)}</span>`;
       }
       let acts = '', moreActs = [];
-      if (isNext && to) {
-        acts = `<div class="oq-primary">
-          <a class="btn btn-ghost btn-sm" target="_blank" rel="noopener" href="${esc(YO.gmail(to, f.subject, f.body))}">✉ Gmail</a>
-          <a class="btn btn-ghost btn-sm" href="${esc(YO.mailto(to, f.subject, f.body))}">📱 Mail app</a>
-          <button class="btn btn-g btn-sm oq-go" onclick="OUT.sent('${lid}',${outCi},${i})">✓ I sent it</button></div>`;
-        moreActs.push(`<button class="btn btn-ghost btn-sm" onclick="OUT.copy('${lid}',${outCi},${i})">📋 Copy</button>`);
-      }
+      if (isNext) { const sa = stepActions(l, outCi, i, f); acts = sa.primary; sa.more.forEach(x => moreActs.push(x)); }
       if (i === lastSent && !reason && stt !== 'replied') moreActs.push(`<button class="btn btn-ghost btn-sm" onclick="OUT.replied('${lid}',${outCi})">↩ They replied</button>`);
       if (stt === 'draft') moreActs.push(`<button class="btn btn-ghost btn-sm" onclick="OUT.edit(${i})">✏️ Edit</button>`);
+      if (isNext && window.SALES) moreActs.push(`<button class="btn btn-ghost btn-sm" onclick="SALES.call('${lid}',${outCi})">📞 Call mode</button>`);
       if (moreActs.length) acts += `<details class="oq-more"><summary>More</summary><div class="oq-more-grid">${moreActs.join('')}</div></details>`;
       const body = editing ? `
         <input class="fi" id="ed-subj" value="${esc(f.subject)}" style="margin-bottom:8px">
@@ -398,19 +468,19 @@
       return `<div style="border:1.5px solid ${isNext ? 'var(--g)' : 'var(--border)'};border-radius:10px;padding:12px;margin-bottom:8px;background:${isNext ? 'var(--gll)' : '#fff'}">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
           <div style="width:26px;height:26px;border-radius:7px;background:${stt === 'draft' ? 'var(--border)' : 'var(--g)'};color:${stt === 'draft' ? 'var(--muted)' : '#fff'};font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0">${i + 1}</div>
-          <div style="flex:1"><div style="font-size:13px;font-weight:700">${esc(f.label)}</div><div style="font-size:11px;color:var(--muted);margin-top:2px">Day ${YO.EDAYS[i]}${dueLbl ? ' · ' : ''}${dueLbl}${s.sentAt ? ` · Sent ${fmtDay(s.sentAt)}` : ''}${f.source === 'step' && stt === 'draft' ? ' · edited' : ''}</div></div>
+          <div style="flex:1"><div style="font-size:13px;font-weight:700">${esc(f.label)}</div><div style="font-size:11px;color:var(--muted);margin-top:2px">${chTag(f.channel)} · Day ${stepDay(l, outCi, i)}${dueLbl ? ' · ' : ''}${dueLbl}${s.sentAt ? ` · Sent ${fmtDay(s.sentAt)}` : ''}${f.source === 'step' && stt === 'draft' ? ' · edited' : ''}</div></div>
           <span class="badge b-${esc(stt)}">${esc(stt)}</span>
         </div>
-        ${left.length && isNext ? `<div class="oq-warn">⚠ Still contains ${esc(left.join(', '))}. ${left.includes('[LEASE]') ? 'Enter the annual rent above, or ' : ''}use ✏️ Edit.</div>` : ''}
+        ${left.length && isNext ? `<div class="oq-warn">⚠ Still contains ${esc(left.join(', '))}. ${left.includes('[LEASE]') ? 'Enter the annual rent above, ' : ''}${left.includes('[HOOK]') ? 'Fill the line about what they did above, ' : ''}or use ✏️ Edit or ✨ Personalise.</div>` : ''}
         ${body}
         ${acts}
       </div>`;
     }).join('');
     el.innerHTML = chips + head + `
       <div style="background:var(--gll);border-radius:10px;padding:14px;border:1px solid var(--border)">
-        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:8px">Sequence progress · ${type === 'employer' ? 'employer pitch' : 'office-lease pitch'}</div>
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:8px">Sequence progress · ${esc(typeName)}</div>
         <div style="display:flex;gap:3px;margin-bottom:8px">${bars}</div>
-        <div style="font-size:12px;color:var(--muted)">${sentCount}/${YO.STEPS} sent · ${status}</div>
+        <div style="font-size:12px;color:var(--muted)">${sentCount}/${st.steps.length} sent · ${status}</div>
       </div>${controls}${cards}`;
   }
 
@@ -418,7 +488,7 @@
      CSV IMPORT
      ==================================================================== */
   let imp = null;
-  function impReset() { imp = { rows: null, headers: [], mapping: {}, name: '', start: true, text: '', mapOpen: null }; renderImport(); }
+  function impReset() { imp = { rows: null, headers: [], mapping: {}, name: '', start: true, text: '', mapOpen: null, brand: window.SALES ? SALES.activeBrandOrDefault() : 'yalo' }; renderImport(); }
 
   function impLoad(text, name) {
     const rows = YO.parseCsv(text);
@@ -433,7 +503,8 @@
 
   function impCompute() {
     const mapped = YO.applyMapping(imp.rows, imp.mapping);
-    return YO.buildImport(mapped, leads, { now: new Date(), startSequences: imp.start, fileName: imp.name, dnc: dncSet(), owner: settings.name || 'Unassigned' });
+    const brand = imp.brand || 'yalo';
+    return YO.buildImport(mapped, leads, { now: new Date(), startSequences: imp.start, fileName: imp.name, dnc: dncSet(), owner: settings.name || 'Unassigned', brand, sequenceMeta: window.YS ? (l, ci) => YS.sequenceMeta(l, l.contacts[ci]) : null });
   }
 
   function renderImport() {
@@ -459,6 +530,7 @@
     const pill = (n, t) => n ? `<span class="imp-pill">${n} ${t}</span>` : '';
     root.innerHTML = `
       <div class="oq-sub" style="margin-bottom:10px"><b>${esc(imp.name)}</b> · ${imp.rows.length} rows</div>
+      ${window.YS ? `<label class="fl">These people are leads for</label><select class="fsel" style="width:100%;margin-bottom:12px" onchange="OUT.impBrand(this.value)">${YS.BRAND_IDS.map(id => `<option value="${id}" ${imp.brand === id ? 'selected' : ''}>${esc(((settings.brands && settings.brands[id] && settings.brands[id].name) || YS.DEFAULT_BRANDS[id].name))}</option>`).join('')}</select>` : ''}
       <details class="oq-more" ${(imp.mapOpen === null ? needFix : imp.mapOpen) ? 'open' : ''} ontoggle="OUT.impMapOpen(this.open)" style="margin:0 0 6px">
         <summary>${needFix ? '⚠ Check the columns' : '✓ Columns matched'} <span style="font-weight:500">(${matched} of ${Object.keys(YO.FIELD_LABELS).length} fields found, tap to change)</span></summary>
         <div class="g2" style="gap:8px 14px;margin-top:6px">${Object.keys(YO.FIELD_LABELS).map(k => `<div><label class="fl">${esc(YO.FIELD_LABELS[k])}</label><select class="fsel" style="width:100%" onchange="OUT.impMap('${k}',this.value)">${opt(k)}</select></div>`).join('')}</div>
@@ -481,6 +553,7 @@
     impPaste() { const t = ($('imp-text') || {}).value || ''; if (!t.trim()) return warn('Paste the CSV text first.'); impLoad(t, 'pasted.csv'); },
     impMap(field, v) { if (v === '') delete imp.mapping[field]; else imp.mapping[field] = Number(v); renderImport(); },
     impStart(v) { imp.start = !!v; renderImport(); },
+    impBrand(v) { imp.brand = v; renderImport(); },
     impMapOpen(open) { imp.mapOpen = !!open; },
     impBack() { impReset(); },
     async impRun() {
