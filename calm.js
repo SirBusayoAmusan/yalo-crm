@@ -10,7 +10,6 @@
   :root{--bg:#f2f2f7;--border:rgba(60,60,67,.14);--shadow:none;--muted:#8e8e93;--text:#1c1c1e;--radius:16px;--hero:var(--g)}
   body{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);letter-spacing:-.011em}
   body input,body select,body textarea,body button{font-family:inherit}
-  body .content{animation:none}
 
   /* surfaces: white on grey, no borders or shadows */
   body .card,body .sf-card,body .cc,body .mc,body .oq-card,body .rem-card,body .sset,body .flist,body .tw{box-shadow:none;border:none;border-radius:16px}
@@ -53,6 +52,34 @@
   body .ni:hover{background:rgba(118,118,128,.1);color:var(--text)}
   body .ni.active{background:rgba(79,91,213,.12);color:var(--g);font-weight:600}
   body .sfooter{border-top:.5px solid var(--border)}
+
+
+  /* ===== MOTION =====
+   * One direction (things rise into place), every move caused by something you did, nothing loops while you wait.
+   * Entrances are under half a second and the whole stagger is under 0.4s. No bounce or elastic, only a slight overshoot on sheets. */
+  :root{--ease:cubic-bezier(.22,1,.36,1);--spring:cubic-bezier(.22,1.18,.36,1)}
+  @keyframes calmIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+  @keyframes calmBar{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+  @keyframes calmPop{0%{transform:scale(.82)}60%{transform:scale(1.08)}100%{transform:scale(1)}}
+  @keyframes calmSheet{from{opacity:0;transform:translateY(46px)}to{opacity:1;transform:none}}
+  .calm-enter>*{animation:calmIn .44s var(--ease) both}
+  .calm-enter>*:nth-child(2){animation-delay:40ms}.calm-enter>*:nth-child(3){animation-delay:80ms}.calm-enter>*:nth-child(4){animation-delay:120ms}.calm-enter>*:nth-child(5){animation-delay:160ms}.calm-enter>*:nth-child(6){animation-delay:200ms}.calm-enter>*:nth-child(n+7){animation-delay:240ms}
+  .calm-enter .ws-pbar i{transform-origin:left;animation:calmBar .8s var(--ease) .15s both}
+  .calm-enter .sf-prog i,.calm-enter .sbar-fill{transform-origin:left;animation:calmBar .8s var(--ease) .2s both}
+  body .btn,body .bn-item,body .sf-row,body .oq-card,body .rem-card,body .sheet-item,body .ni,body .bb-btn,body .wn-cell,body .wn-home,body .wn-next,body .hero-btn{transition:transform .22s var(--ease),background-color .25s,opacity .2s,box-shadow .25s}
+  body .btn:active,body .sheet-item:active,body .bb-btn:active{transform:scale(.97)}
+  body .bn-item:active{transform:scale(.9)}
+  body .sf-row:active,body .oq-card:active,body .wn-cell:active,body .wn-home:active,body .wn-next:active,body #table-view tr:active{transform:scale(.985)}
+  body .bn-item.active svg{animation:calmPop .4s var(--ease)}
+  body .sheet-ov.open .sheet{animation:calmSheet .46s var(--spring)}
+  body .cmo.open .cm{animation:calmSheet .46s var(--spring)}
+  body .cmo{transition:opacity .3s var(--ease)}body .cm{transition:transform .46s var(--spring)}
+  body details[open]>*:not(summary){animation:calmIn .36s var(--ease)}
+  body .toast{pointer-events:none;left:50%;right:auto;bottom:calc(76px + env(safe-area-inset-bottom));max-width:min(92vw,440px);text-align:center;border-radius:14px;border-left:none;background:rgba(28,28,30,.94);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);transform:translate(-50%,24px) scale(.96);transition:transform .45s var(--spring),opacity .25s var(--ease)}
+  body .toast.show{transform:translate(-50%,0) scale(1)}
+  @media(min-width:769px){body .toast{bottom:28px}}
+  .calm-tick{font-variant-numeric:tabular-nums}
+  @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-delay:0s!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
 
   /* HOME */
   #tab-dashboard .hero,#tab-dashboard .qa-grid,#tab-dashboard #metrics,#tab-dashboard #today-wrap{display:none!important}
@@ -164,7 +191,7 @@
     }
     const lb = $('leaderboard'), lbCard = lb && lb.closest('.card');
     [$('sf-dash'), $('oq-dash-strip'), tab.querySelector('.charts-row'), tab.querySelector('.bot-row'), lbCard].forEach(n => { if (n && n.parentNode !== more) more.appendChild(n); });
-    [head, stats, $('ws-home-plan'), $('sf-next'), more].forEach(n => { if (n && n.parentNode === tab && n === tab.lastElementChild) return; if (n) tab.appendChild(n); });
+    [head, stats, $('ws-home-plan'), $('sf-next'), $('wn-home'), more].forEach(n => { if (n && n.parentNode === tab && n === tab.lastElementChild) return; if (n) tab.appendChild(n); });
   }
 
   // tap anywhere on a lead card (not only its name)
@@ -174,11 +201,28 @@
     if (mm && typeof window.openLead === 'function') window.openLead(mm[1]);
   });
 
+
+  // numbers count up when a screen is entered (once, from the screen change, not on every refresh)
+  function tick(el) {
+    if (!el || el.dataset.ticked === el.textContent) return; const txt = el.textContent, m = /(\d[\d,]*\.?\d*)/.exec(txt); if (!m) return;
+    const to = parseFloat(m[1].replace(/,/g, '')), dec = (m[1].split('.')[1] || '').length, pre = txt.slice(0, m.index), post = txt.slice(m.index + m[1].length);
+    if (!isFinite(to) || to === 0 || (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)) return;
+    el.classList.add('calm-tick'); const t0 = performance.now(), dur = 700;
+    (function step(t) { const k = Math.min(1, (t - t0) / dur), v = to * (1 - Math.pow(1 - k, 3)); el.textContent = pre + (dec ? v.toFixed(dec) : Math.round(v).toLocaleString('en-US')) + post; if (k < 1) requestAnimationFrame(step); else { el.textContent = txt; el.dataset.ticked = txt; } })(t0);
+  }
+  let enterTimer = null;
+  function enter(t) {
+    const el = $('tab-' + t); if (!el) return; el.classList.remove('calm-enter'); void el.offsetWidth; el.classList.add('calm-enter');
+    clearTimeout(enterTimer); enterTimer = setTimeout(() => el.classList.remove('calm-enter'), 900);
+    if (t === 'dashboard') el.querySelectorAll('#calm-stats b').forEach(b => { delete b.dataset.ticked; tick(b); });
+  }
+  document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('.oq-go'); if (b && navigator.vibrate) { try { navigator.vibrate(10); } catch (x) { } } });
+
   function hook() {
     const st = document.createElement('style'); st.id = 'calm-css'; st.textContent = CSS; document.head.appendChild(st);
     icons();
     const _showTab = window.showTab;
-    window.showTab = function (t) { document.body.dataset.tab = t; _showTab(t); };
+    window.showTab = function (t) { document.body.dataset.tab = t; _showTab(t); enter(t); };
     document.body.dataset.tab = (typeof curTab !== 'undefined' && curTab) || 'dashboard';
     const _renderDash = window.renderDash;
     window.renderDash = function () { _renderDash(); try { homeLayout(); icons(); groupWarns(); } catch (e) { console.warn('calm home', e); } };

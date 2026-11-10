@@ -127,13 +127,14 @@
     const check = !srv ? (state.serverErr ? `<div class="oq-warn">⚠ ${esc(state.serverErr)}</div>` : '<div class="oq-sub">Checking the server…</div>')
       : `<div class="oq-sub">Server check: ${srv.lastTick ? `<b>${esc(ago(srv.lastTick))}</b>` : '<b>not seen yet</b>'}${srv.lastSend ? ` · last notification sent ${esc(ago(srv.lastSend))}` : ''}</div>${srv.lastTick && !fresh ? '<div class="oq-warn">⚠ The server has not checked for a while. Notifications will wait until it does (the GitHub “Push tick” workflow wakes it every 5 minutes).</div>' : ''}${!srv.lastTick && devs.length ? '<div class="oq-sub">The first check can take up to 5 minutes after setup.</div>' : ''}`;
     root.innerHTML = `<div class="sf-card" style="margin-bottom:18px"><h4 style="display:flex;justify-content:space-between;align-items:center;gap:8px"><span>🔔 Notifications, even when the app is closed</span>${chip}</h4>
-      <div class="oq-sub" style="margin-bottom:10px">Tasks, your morning summary and send-batch reminders arrive on your phone like any other app. They can come up to about 5 minutes after their time.</div>
+      <div class="oq-sub" style="margin-bottom:10px">Tasks, your morning summary and send-batch reminders arrive on your phone like any other app. They arrive within about a minute of their time.</div>
       ${steps}
       <div class="oq-acts" style="margin:10px 0">${p.need === 'install' || p.need === 'unsupported' || (here && !state.busy) ? '' : `<button class="btn btn-g" style="min-height:46px;flex:1" onclick="PUSH.enable()" ${state.busy ? 'disabled' : ''}>${state.busy ? 'Turning on…' : '🔔 Turn on for this phone'}</button>`}
         ${here ? `<button class="btn btn-ghost" style="min-height:46px" onclick="PUSH.test()">Send me a test</button><button class="btn btn-ghost" style="min-height:46px" onclick="PUSH.disable()">Turn off here</button>` : ''}</div>
       <label style="display:flex;gap:10px;align-items:center;padding:8px 0;font-size:14px"><input type="checkbox" ${pr.tasks ? 'checked' : ''} onchange="PUSH.pref('tasks',this.checked)"> Task reminders (at the time you set)</label>
       <label style="display:flex;gap:10px;align-items:center;padding:8px 0;font-size:14px"><input type="checkbox" ${pr.morning ? 'checked' : ''} onchange="PUSH.pref('morning',this.checked)"> Morning summary at <input class="fi" type="time" value="${esc(pr.morningTime)}" style="width:120px;padding:6px 8px" onchange="PUSH.pref('morningTime',this.value)"></label>
       <label style="display:flex;gap:10px;align-items:center;padding:8px 0;font-size:14px"><input type="checkbox" ${pr.batches ? 'checked' : ''} onchange="PUSH.pref('batches',this.checked)"> Send-batch reminders (from your daily sending plan)</label>
+      <label style="display:flex;gap:10px;align-items:center;padding:8px 0;font-size:14px"><input type="checkbox" ${pr.followups ? 'checked' : ''} onchange="PUSH.pref('followups',this.checked)"> Follow-ups: a prompt the moment each next email is due (timed from when you tap “I sent it”)</label>
       <div class="sf-sec">Your phones</div>
       ${devs.length ? devs.map(d => `<div class="sf-row" style="cursor:default"><div class="sf-txt"><div class="sf-name">${esc(d.label)}${d.endpoint === mine ? ' <span class="oq-tag">this phone</span>' : ''}</div><div class="sf-why">Added ${esc(ago(d.added) || '')}</div></div><button class="btn btn-ghost btn-sm" style="min-height:40px" onclick="PUSH.remove('${esc(d.endpoint)}')">Remove</button></div>`).join('') : '<div class="oq-sub">None yet. Turn it on here, and on your other phone too.</div>'}
       <div class="sf-sec">Next up</div>
@@ -142,7 +143,29 @@
   }
 
   /* ---------------------------------------------------------------- hook into the app */
+  /* ---------------------------------------------------------------- manual reminder ("Remind me") */
+  const U = S.util;
+  function whenFor(kind) { const d = new Date(); if (kind === 'hour') d.setHours(d.getHours() + 1); else if (kind === 'evening') { d.setHours(18, 0, 0, 0); if (d <= new Date()) d.setDate(d.getDate() + 1); } else { d.setDate(d.getDate() + (kind === '3d' ? 3 : kind === 'week' ? 7 : 1)); d.setHours(9, 0, 0, 0); } return d; }
+  function remindMe(leadId, ci) {
+    const l = (S.allLeads() || []).find(x => x.id === leadId); if (!l) return; const c = (l.contacts || [])[ci || 0] || {};
+    const opt = (k, t) => `<button class="btn btn-ghost" style="min-height:48px" onclick="PUSH.remindSet('${esc(leadId)}',${ci || 0},'${k}')">${t}</button>`;
+    U.openSheet('ai', `<div class="cmtitle">⏰ Remind me</div><div class="cmsub">${esc(c.name || l.company)} · ${esc(l.company)}. You will get a notification on your phone.</div>
+      <label class="fl">What for</label><input class="fi" id="rm-note" value="Follow up with ${esc(c.name || l.company)}">
+      <div class="ws-grid2" style="margin-top:12px">${opt('hour', 'In 1 hour')}${opt('evening', 'This evening')}${opt('tomorrow', 'Tomorrow 9:00')}${opt('3d', 'In 3 days')}${opt('week', 'Next week')}<button class="btn btn-ghost" style="min-height:48px" onclick="PUSH.remindSet('${esc(leadId)}',${ci || 0},'pick')">Pick a time…</button></div>
+      <input class="fi" id="rm-pick" type="datetime-local" style="display:none;margin-top:10px"><div class="oq-acts" style="margin-top:10px"><button class="btn btn-ghost" style="min-height:44px;flex:1" onclick="SALES.closeAi()">Cancel</button></div>`);
+  }
+  async function remindSet(leadId, ci, kind) {
+    const l = (S.allLeads() || []).find(x => x.id === leadId); if (!l) return; const c = (l.contacts || [])[ci] || {};
+    let when;
+    if (kind === 'pick') { const el = $('rm-pick'); if (el.style.display === 'none') { el.style.display = ''; el.focus(); return; } if (!el.value) return; when = new Date(el.value); } else when = whenFor(kind);
+    if (isNaN(when) || when <= new Date()) return warn('Pick a time in the future');
+    const note = YO.clean(($('rm-note') || {}).value, 120) || 'Follow up';
+    await window.FB.saveReminder({ id: uid(), leadId: l.id, company: l.company, contactName: c.name || '', phone: c.phone || '', note, when: when.toISOString(), done: false, fired: false, createdAt: new Date().toISOString(), source: 'manual' });
+    S.util.closeSheet('ai'); toast('Reminder set for ' + when.toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }));
+  }
+
   const API_PUBLIC = window.PUSH = {
+    remindMe, remindSet,
     enable, disable, test, sync, render, openFrom, remove: removeDevice, refreshServer,
     async pref(k, v) { try { await savePrefs({ [k]: v }); await sync(true); await refreshServer(); render(); } catch (e) { warn(e.message); } },
     state: () => state
