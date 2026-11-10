@@ -7,7 +7,7 @@
 })(typeof self !== 'undefined' ? self : this, function (YO, YS) {
   'use strict';
   const MIN = 60000, DAY = 86400000;
-  const DEFAULT_PREFS = { on: false, tasks: true, morning: true, morningTime: '08:30', batches: true };
+  const DEFAULT_PREFS = { on: false, tasks: true, morning: true, morningTime: '08:30', batches: true, followups: true };
   const prefsOf = s => Object.assign({}, DEFAULT_PREFS, (s && s.push) || {});
   const pad = n => String(n).padStart(2, '0');
   const dayKey = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -65,6 +65,29 @@
           if (at <= now || n <= 0) return;
           items.push({ id: `b:${dayKey(row.day)}:${i}`, at: at.toISOString(), title: `📬 Batch ${i + 1} of 4: send ${n}`, body: 'Open Send mode. This part of the day\'s emails is ready.', url: '/?go=send' });
         });
+      });
+    }
+
+    // Automatic follow-up prompts: the moment each next step falls due (it is timed from when you tapped "I sent it").
+    // Steps due in the same hour share one notification. A prompt is skipped when a batch or morning reminder is already
+    // buzzing within 25 minutes, so you are never pinged twice for the same thing.
+    if (prefs.followups) {
+      const near = items.filter(i => /^[bm]:/.test(i.id)).map(i => new Date(i.at).getTime());
+      const groups = {};
+      YO.buildQueue((o.leads || []).filter(l => l && !l._deleted), now).forEach(q => {
+        if (!q.due || (q.noEmail && channelOf(q.lead, q.ci, q.idx) === 'email')) return;
+        const due = new Date(q.due); if (isNaN(due) || due <= now || due > now.getTime() + 14 * DAY) return;
+        if (q.idx === 0) return;                                     // first steps are covered by the plan; follow-ups are the ones that need a prompt
+        const key = due.getFullYear() + '-' + pad(due.getMonth() + 1) + '-' + pad(due.getDate()) + 'T' + pad(due.getHours());
+        (groups[key] = groups[key] || []).push({ q, due });
+      });
+      Object.keys(groups).forEach(key => {
+        const g = groups[key].sort((a, b) => a.due - b.due), at = g[0].due.getTime();
+        if (near.some(t => Math.abs(t - at) <= 25 * MIN)) return;
+        const one = g[0].q, who = x => { const c = (x.q.lead.contacts || [])[x.q.ci] || {}; return `${c.name || x.q.lead.company}${c.name && x.q.lead.company ? ' (' + clip(x.q.lead.company, 24) + ')' : ''}`; };
+        items.push({ id: 'f:' + key, at: g[0].due.toISOString(), title: g.length === 1 ? `📬 Follow-up due: ${clip(who(g[0]), 60)}` : `📬 ${g.length} follow-ups due now`,
+          body: clip(g.slice(0, 3).map(x => `Email ${x.q.idx + 1} · ${who(x)}`).join(', ') + (g.length > 3 ? ` +${g.length - 3} more` : ''), 150),
+          url: g.length === 1 ? `/?lead=${encodeURIComponent(one.lead.id)}&tab=emails` : '/?go=queue' });
       });
     }
     return items.sort((a, b) => new Date(a.at) - new Date(b.at)).slice(0, 380);

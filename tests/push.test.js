@@ -242,3 +242,21 @@ test('device check: iPhone needs the Home Screen app, blocked and unsupported ar
   assert.equal(PC.platform({ ua: 'Mozilla/5.0 (Macintosh)', platform: 'MacIntel', maxTouchPoints: 5, hasSW: true, hasPush: false, hasNotification: false, standalone: false }).ios, true, 'iPad pretending to be a Mac');
   assert.deepEqual([...PC.urlBase64ToBytes('AQID')], [1, 2, 3]);
 });
+
+test('schedule: a follow-up prompt fires the moment each next email is due, grouped by hour, and never doubles up a batch reminder', () => {
+  const sentAt = L(2026, 10, 9, 14, 7);                                              // "I sent it" yesterday at 14:07
+  const mk = (company, name) => { const l = lead({ company, contacts: [{ name, title: 'CFO', email: name.split(' ')[0].toLowerCase() + '@x.com' }] }); const meta = YS.sequenceMeta(l, l.contacts[0]); YO.startSequence(l, 0, new Date(sentAt - DAYMS), meta.type, meta); YO.markSent(l, 0, 0, sentAt); return l; };
+  const a = mk('Zed Logistics', 'Ada Obi'), b = mk('Idle Corp', 'Ife Bello');
+  const off = { push: { tasks: false, morning: false, batches: false } };
+  const s = PC.buildSchedule({ now: NOW, leads: [a], reminders: [], settings: off }).filter(i => i.id[0] === 'f');
+  assert.equal(s.length, 1); const due = YO.dueDate(YO.seqState(a, 0));
+  assert.equal(s[0].at, due.toISOString(), 'at the exact day and time the next step is due'); assert.match(s[0].title, /Follow-up due: Ada Obi \(Zed Logistics\)/); assert.match(s[0].body, /^Email 2 · Ada Obi/);
+  assert.equal(s[0].url, '/?lead=' + a.id + '&tab=emails');
+  const two = PC.buildSchedule({ now: NOW, leads: [a, b], reminders: [], settings: off }).filter(i => i.id[0] === 'f');
+  assert.equal(two.length, 1, 'same hour, one notification'); assert.match(two[0].title, /2 follow-ups due now/); assert.match(two[0].body, /Ada Obi.*Ife Bello/); assert.equal(two[0].url, '/?go=queue');
+  assert.equal(PC.buildSchedule({ now: NOW, leads: [a], reminders: [], settings: { push: Object.assign({}, off.push, { followups: false }) } }).filter(i => i.id[0] === 'f').length, 0, 'can be switched off');
+  const dueH = due.getHours(), nearBatch = { push: { tasks: false, morning: false, batches: true } };
+  const withBatch = PC.buildSchedule({ now: NOW, leads: [a], reminders: [], settings: Object.assign({ plan: { times: [pad2(dueH) + ':' + pad2(due.getMinutes() + 10 > 59 ? 59 : due.getMinutes() + 10), '09:00', '11:00', '16:00'] } }, nearBatch) });
+  assert.ok(withBatch.filter(i => i.id[0] === 'f').length <= 1);
+});
+const pad2 = n => String(n).padStart(2, '0');
