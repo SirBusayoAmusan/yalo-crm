@@ -1,0 +1,12 @@
+{
+  "name": "yalo-crm",
+  "private": true,
+  "description": "YALO CRM static app plus the small push-notification server (Vercel functions in /api).",
+  "scripts": {
+    "test": "node --test tests/outreach-core.test.js tests/sales-core.test.js tests/push.test.js tests/sw.test.js"
+  },
+  "dependencies": {
+    "@vercel/blob": "^2.9.0",
+    "web-push": "^4.0.0"
+  }
+}

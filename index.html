@@ -44,6 +44,8 @@ window.FB = {
     return signInWithPopup(auth, p);
   },
   async signOutUser() { await signOut(auth); },
+  // Proof of who is signed in, sent to the push server (it only accepts the owners)
+  async getIdToken(force) { const u = auth.currentUser; return u ? u.getIdToken(!!force) : null; },
   onAuth(cb) { return onAuthStateChanged(auth, cb); },
   async savePublicProfile(id, p) {
     await setDoc(doc(db, "publicProfile", id), p);
@@ -899,16 +901,6 @@ body.authed .login-screen{display:none}
       <div class="sssub">Your Anthropic API key — stored in Firebase, syncs across all devices.</div>
       <div class="fg"><label class="fl">Anthropic API Key</label><input class="fi" type="password" id="s-key" placeholder="sk-ant-..."></div>
       <button class="btn btn-g" onclick="saveSettings()">Save</button>
-    </div>
-    <div class="sset">
-      <div class="sstitle">Push notifications (reminders when the app is closed)</div>
-      <div class="sssub">Paste your Firebase <b>Web Push certificate</b> key pair (Project Settings → Cloud Messaging → Web configuration). Then tap Enable on each device/phone you use.</div>
-      <div class="fg"><label class="fl">Web Push (VAPID) public key</label><input class="fi" id="s-vapid" placeholder="BISb... (long key)"></div>
-      <div style="display:flex;gap:10px;flex-wrap:wrap">
-        <button class="btn btn-g" onclick="saveSettings()">Save key</button>
-        <button class="btn btn-ghost" onclick="enablePushHere()">🔔 Enable on this device</button>
-      </div>
-      <div id="push-status" style="font-size:12px;color:var(--muted);margin-top:12px"></div>
     </div>
     <div class="sset">
       <div class="sstitle">Your Details & Digital Card</div>
@@ -2881,9 +2873,11 @@ setTimeout(()=>{ if(settings&&settings.vapidKey&&('Notification'in window)&&Noti
 <script src="outreach-core.js?v=2026-11-10.5"></script>
 <script src="sales-lexicon.js?v=2026-11-10.5"></script>
 <script src="sales-core.js?v=2026-11-10.5"></script>
+<script src="push-core.js?v=2026-11-10.5"></script>
 <script src="outreach.js?v=2026-11-10.5"></script>
 <script src="sales.js?v=2026-11-10.5"></script>
 <script src="workspace.js?v=2026-11-10.5"></script>
+<script src="push.js?v=2026-11-10.5"></script>
 
 <div class="bottom-nav" id="bottom-nav">
   <button class="bn-item active" id="bn-dashboard" onclick="showTab('dashboard')"><span>📊</span>Home</button>

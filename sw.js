@@ -1,28 +1,21 @@
-// ---- Firebase Cloud Messaging (background push) ----
-try {
-  importScripts('https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js');
-  importScripts('https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-compat.js');
-  firebase.initializeApp({
-    apiKey: "AIzaSyD_0WnGjD1YKlrT86RXL79OvqfIoAm3ccc",
-    authDomain: "yalo-crm.firebaseapp.com",
-    projectId: "yalo-crm",
-    storageBucket: "yalo-crm.firebasestorage.app",
-    messagingSenderId: "1003166589543",
-    appId: "1:1003166589543:web:c2e22341675f1cf053eac2"
-  });
-  const messaging = firebase.messaging();
-  messaging.onBackgroundMessage(payload => {
-    const d = payload.data || {};
-    self.registration.showNotification(d.title || 'YALO CRM', {
-      body: d.body || '', icon: 'icon-192.png', badge: 'icon-192.png',
-      tag: d.remId ? 'yalo-rem-' + d.remId : undefined, data: d
-    });
-  });
-} catch (e) { /* messaging optional; app shell still works */ }
+// ---- Web Push: the phone wakes this up when the server sends a notification, even with the app closed ----
+// (Standard Web Push with the server's own keys. It works on Android browsers and on iPhone for the app added to the Home Screen.)
+self.addEventListener('push', e => {
+  let d = {};
+  try { d = e.data ? e.data.json() : {}; } catch (err) { d = { body: e.data ? e.data.text() : '' }; }
+  const title = (d.title || 'YALO CRM').toString().slice(0, 100);
+  // Every push must show something (iPhone cancels subscriptions that stay silent).
+  e.waitUntil(self.registration.showNotification(title, {
+    body: (d.body || '').toString().slice(0, 240),
+    icon: 'icon-192.png', badge: 'icon-192.png',
+    tag: d.tag || undefined,
+    data: { url: typeof d.url === 'string' && d.url.charAt(0) === '/' ? d.url : '/' }
+  }));
+});
 
-const CACHE = 'yalo-crm-shell-v7';
+const CACHE = 'yalo-crm-shell-v8';
 const LIBS = 'yalo-crm-libs-v1';
-const SHELL = ['index.html', 'outreach-core.js', 'outreach.js', 'sales-lexicon.js', 'sales-core.js', 'sales.js', 'workspace.js', 'card.html', 'manifest.json', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png', 'favicon-32.png', 'icon.svg'];
+const SHELL = ['index.html', 'outreach-core.js', 'outreach.js', 'sales-lexicon.js', 'sales-core.js', 'sales.js', 'workspace.js', 'push-core.js', 'push.js', 'card.html', 'manifest.json', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png', 'favicon-32.png', 'icon.svg'];
 const LIB_HOSTS = ['www.gstatic.com', 'cdnjs.cloudflare.com', 'fonts.googleapis.com', 'fonts.gstatic.com'];
 
 self.addEventListener('install', e => {
@@ -39,10 +32,14 @@ self.addEventListener('activate', e => {
 
 self.addEventListener('notificationclick', e => {
   e.notification.close();
+  const rel = (e.notification.data && e.notification.data.url) || '/';
+  const target = new URL(rel.replace(/^\//, ''), self.registration.scope).href;       // e.g. https://app/?go=tasks
   e.waitUntil((async () => {
     const all = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
-    for (const c of all) { if ('focus' in c) return c.focus(); }
-    if (self.clients.openWindow) return self.clients.openWindow('./');
+    for (const c of all) {
+      try { await c.focus(); c.postMessage({ type: 'yalo-open', search: new URL(target).search }); return; } catch (err) { /* try the next window */ }
+    }
+    if (self.clients.openWindow) return self.clients.openWindow(target);
   })());
 });
 
