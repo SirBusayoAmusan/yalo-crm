@@ -298,15 +298,16 @@ If it is not for you, just say so and I won't follow up again.` },
 
   /* ================================================================== call outcomes -> stage + follow-up tasks */
   const OUTCOMES = [
-    { id: 'no_answer', label: 'No answer', icon: '📵', tasks: [{ days: 1, note: 'Call {name} again' }] },
-    { id: 'voicemail', label: 'Left voicemail', icon: '📨', tasks: [{ days: 2, note: 'Follow up {name} on the voicemail with a short message' }] },
+    { id: 'no_answer', label: 'No answer', icon: '📵', callOnly: true, tasks: [{ days: 1, note: 'Call {name} again' }] },
+    { id: 'voicemail', label: 'Left voicemail', icon: '📨', callOnly: true, tasks: [{ days: 2, note: 'Follow up {name} on the voicemail with a short message' }] },
     { id: 'interested', label: 'Interested', icon: '🔥', stage: 'Replied', tasks: [{ days: 1, note: 'Book a meeting with {name}' }] },
     { id: 'send_info', label: 'Wants information', icon: '📄', stage: 'Replied', tasks: [{ hours: 2, note: 'Send {name} the information they asked for' }, { days: 3, note: 'Check {name} saw it and ask for 15 minutes' }] },
     { id: 'meeting', label: 'Meeting booked', icon: '📅', stage: 'Meeting Set', needsDate: true, tasks: [{ beforeMeetingH: 24, note: 'Confirm the meeting with {name}' }, { beforeMeetingH: 1, note: 'Prepare for the meeting with {name}' }] },
     { id: 'not_now', label: 'Not now', icon: '⏳', pause: true, tasks: [{ days: 90, note: 'Check back with {name} (said not now)' }] },
     { id: 'wrong_person', label: 'Wrong person', icon: '↪️', tasks: [{ days: 1, note: 'Ask {name} who the right person is, then contact them' }] },
     { id: 'not_interested', label: 'Not interested', icon: '🚫', stage: 'Lost', loss: 'Not interested', tasks: [{ days: 120, note: 'Light check-in with {name} (said no earlier)' }] },
-    { id: 'dnc', label: "Don't contact me", icon: '⛔', stage: 'Lost', loss: 'Asked not to be contacted', dnc: true, tasks: [] }
+    { id: 'dnc', label: "Don't contact me", icon: '⛔', stage: 'Lost', loss: 'Asked not to be contacted', dnc: true, tasks: [] },
+    { id: 'ooo', label: 'Out of office', icon: '🏝️', replyOnly: true, pause: true, tasks: [{ days: 7, note: 'Follow up {name}, they were out of office' }] }
   ];
   const STAGE_ORDER = ['New', 'Contacted', 'Replied', 'Meeting Set', 'Proposal Sent', 'Closed', 'Lost'];
   // Applies an outcome to the lead object (mutates it) and returns the tasks and activity text to save.
@@ -316,7 +317,7 @@ If it is not for you, just say so and I won't follow up again.` },
     if (!o) return null;
     const c = (lead.contacts || [])[ci] || {};
     const name = clean(c.name) || clean(lead.company) || 'this lead';
-    const res = { outcome: o, stageChanged: null, tasks: [], dnc: false, paused: false, activity: `Call with ${name}: ${o.label.toLowerCase()}` };
+    const res = { outcome: o, stageChanged: null, tasks: [], dnc: false, paused: false, activity: `${opts.via === 'email' ? 'Reply from' : 'Call with'} ${name}: ${o.label.toLowerCase()}` };
     if (o.stage) {
       const cur = STAGE_ORDER.indexOf(lead.stage), nxt = STAGE_ORDER.indexOf(o.stage);
       if (o.stage === 'Lost' || nxt > cur) { res.stageChanged = [lead.stage, o.stage]; lead.stage = o.stage; if (o.loss) lead.lossReason = o.loss; }
@@ -439,6 +440,223 @@ If it is not for you, just say so and I won't follow up again.` },
     return { text: s, changed: changes === 1, flags };
   }
 
+
+  /* ================================================================== custom sequences (template editor) */
+  const BASE_SEQUENCES = JSON.parse(JSON.stringify(SEQUENCES));
+  const CHANNELS = ['email', 'dm', 'comment'];
+  let CUSTOM = {};
+  const TOKENS = [
+    ['first_name', 'Their first name'], ['company', 'Their company'], ['title', 'Their job title'], ['hook', 'What they did / why now'],
+    ['proof', 'First proof fact'], ['proof2', 'Second proof fact'], ['offer', 'Your offer'], ['lease_phrase', 'Rent amount or "a large sum"'],
+    ['marketplace', 'Marketplace line'], ['sender_name', 'Your name'], ['sender_title', 'Your title'], ['sender_company', 'Your company'], ['brand', 'Company name']
+  ];
+  const TOKEN_SET = new Set(TOKENS.map(x => x[0]));
+  const stepText = (v, max) => String(v == null ? '' : v).replace(/[<>]/g, '').replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, '').slice(0, max);
+  function sanitizeSequence(seq, brand) {
+    const steps = arr(seq && seq.steps).slice(0, 12).map((s, i) => ({
+      day: Math.max(0, Math.min(365, parseInt(s && s.day, 10) || 0)), channel: CHANNELS.includes(s && s.channel) ? s.channel : 'email',
+      label: clean(s && s.label, 80) || ('Step ' + (i + 1)), subject: clean(s && s.subject, 200), body: stepText(s && s.body, 4000).trim()
+    }));
+    const out = { brand: BRAND_IDS.includes(seq && seq.brand) ? seq.brand : (brand || 'yalo'), name: clean(seq && seq.name, 80) || 'My sequence', audience: clean(seq && seq.audience, 120), steps };
+    if (seq && seq.base) out.base = String(seq.base).slice(0, 60);      // Firestore rejects undefined values, so only set it when there is one
+    return out;
+  }
+  function validateSequence(seq) {
+    const errs = [];
+    if (!seq.steps.length) errs.push('Add at least one step.');
+    seq.steps.forEach((s, i) => {
+      if (!s.body) errs.push(`Step ${i + 1} has no message.`);
+      if (s.channel === 'email' && !s.subject) errs.push(`Step ${i + 1} is an email and needs a subject.`);
+      if (i && s.day < seq.steps[i - 1].day) errs.push(`Step ${i + 1} comes before step ${i} (check the day numbers).`);
+    });
+    return errs;
+  }
+  // custom = { id: sequence }. Built-in ids are overridden when present; other ids are new sequences. Mutates SEQUENCES in place.
+  function setCustomSequences(custom) {
+    CUSTOM = {};
+    Object.keys(SEQUENCES).forEach(k => delete SEQUENCES[k]);
+    Object.keys(BASE_SEQUENCES).forEach(k => { SEQUENCES[k] = JSON.parse(JSON.stringify(BASE_SEQUENCES[k])); });
+    Object.keys(custom || {}).forEach(id => {
+      if (!/^[a-z0-9-]{3,60}$/.test(id)) return;
+      const s = sanitizeSequence(custom[id], (BASE_SEQUENCES[id] || {}).brand);
+      if (validateSequence(s).length) return;
+      CUSTOM[id] = s; SEQUENCES[id] = Object.assign({}, s, { custom: true });
+    });
+    return Object.keys(CUSTOM);
+  }
+  const isBuiltIn = id => !!BASE_SEQUENCES[id];
+  const isEdited = id => !!CUSTOM[id];
+  const baseSequence = id => BASE_SEQUENCES[id] ? JSON.parse(JSON.stringify(BASE_SEQUENCES[id])) : null;
+  function newSequenceId(brand, existing) { let i = Date.now().toString(36); while ((existing || SEQUENCES)[`custom-${brand}-${i}`]) i += 'x'; return `custom-${brand}-${i}`; }
+
+  function slopHits(text) {
+    const hits = [];
+    (LEX.words || []).forEach(([find]) => { if (new RegExp('(^|[^A-Za-z])' + find.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?![A-Za-z])', 'i').test(text)) hits.push(find); });
+    return hits;
+  }
+  /* Playbook checks shown next to every step in the editor. */
+  function lintStep(step, idx) {
+    const out = [], text = (step.subject ? step.subject + '\n' : '') + step.body, body = step.body || '';
+    const add = (ok, good, bad) => out.push({ ok, text: ok ? good : bad });
+    const sentences = body.split(/(?<=[.?!])\s+/).filter(x => x.trim()).length, links = (body.match(/https?:\/\/|www\./gi) || []).length;
+    const asks = (body.match(/\?/g) || []).length;
+    if (step.channel === 'email') {
+      add(!!step.subject && step.subject.length <= 70 && !/^re:/i.test(step.subject), 'Subject is short and honest', 'Subject is missing, too long, or looks like a fake reply');
+      add(sentences <= 7 && body.length <= 750, 'Short enough to read in seconds', `Too long (${sentences} sentences). Aim for 3 to 6`);
+      add(asks >= 1 || /\b(reply|okay if|what does your availability)/i.test(body), 'Has one easy ask', 'No clear ask. End with something they can answer in a few words');
+      add(asks <= 2, 'Only one main question', 'More than two questions. Keep one ask');
+      add(idx === 0 ? links === 0 : links <= 1, idx === 0 ? 'No links in the first email' : 'Links kept to a minimum', idx === 0 ? 'Remove links from the first email (they hurt delivery)' : 'Too many links');
+    } else if (step.channel === 'dm') {
+      add(body.length <= 480 && sentences <= 5, 'Short enough for a DM', 'Too long for a DM. Aim for 2 to 4 sentences');
+      add(links === 0, 'No link in the message', 'Remove the link. DMs with links read like a funnel');
+      add(asks >= 1, 'Has one small ask', 'No question. End with one small ask');
+    } else {
+      add(links === 0, 'No link', 'Remove the link from a comment');
+      add(!/\b(buy|discount|offer|sign up|dm me)\b/i.test(body), 'No pitch in a public comment', 'This reads like a pitch. Public comments should add value only');
+    }
+    add(!/[—–]/.test(text), 'No long dashes', 'Replace long dashes with commas or full stops');
+    const h = humanize(text), slop = slopHits(text);
+    add(!slop.length, 'No stock AI phrases', 'Machine-written wording: ' + slop.slice(0, 4).join(', ') + '. Use plainer words');
+    add(!h.flags.length, 'No stiff patterns', 'Stiff pattern: ' + h.flags.map(f => f.name).join('; '));
+    const unknown = (text.match(/\{([a-z_0-9]+)\}/g) || []).map(x => x.slice(1, -1)).filter(x => !TOKEN_SET.has(x));
+    add(!unknown.length, 'All placeholders are known', 'Unknown placeholder: ' + unknown.map(x => '{' + x + '}').join(', '));
+    if (step.channel !== 'comment') add(/\{first_name\}|\[FNAME\]/.test(text), 'Uses their name', 'Add {first_name} so it reads personally');
+    return out;
+  }
+  function sampleFor(brandId, profile) {
+    return brandId === 'clearpath'
+      ? { lead: { id: 'sample', company: 'Tech Tom', brand: 'clearpath', hook: 'how he edits in one hour', contacts: [{ name: 'Tom Ray', title: 'Creator', email: 'tom@example.com' }], stage: 'New' } }
+      : { lead: { id: 'sample', company: 'Acme Ltd', brand: 'yalo', lease: 12000000, contacts: [{ name: 'Jane Doe', title: 'CFO', email: 'jane@example.com' }], stage: 'New' } };
+  }
+  function renderSample(step, brandId, profile, sender) {
+    const s = sampleFor(brandId, profile).lead; const type = '__preview';
+    const tf = () => [step];
+    s.contacts[0].seq = { active: true, startedAt: new Date().toISOString(), type, steps: [{ status: 'draft' }] };
+    return YO.renderStep(s, 0, 0, tf, { brand: profile, sender });
+  }
+
+  /* ================================================================== what is working (reply rate per step) */
+  function seqStats(leads) {
+    const out = {};
+    const get = id => out[id] = out[id] || { sent: 0, replied: 0, steps: [] };
+    for (const lead of leads) {
+      if (!lead || lead._deleted) continue;
+      const n = Math.max((lead.contacts || []).length, 1);
+      for (let ci = 0; ci < n; ci++) {
+        const c = (lead.contacts || [])[ci];
+        let steps, type;
+        if (c && c.seq) { steps = c.seq.steps; type = c.seq.type || autoSeqType(lead, c); }
+        else if (ci === 0 && Array.isArray(lead.emails) && lead.emails.some(e => e && ['sent', 'opened', 'replied'].includes(e.status))) { steps = lead.emails; type = lead.seqType || YO.autoType(lead); }
+        else continue;
+        const o = get(type);
+        steps.forEach((s, i) => {
+          const st = (o.steps[i] = o.steps[i] || { sent: 0, replied: 0 });
+          if (s && ['sent', 'opened', 'replied'].includes(s.status)) { o.sent++; st.sent++; }
+          if (s && s.status === 'replied') { o.replied++; st.replied++; }
+        });
+      }
+    }
+    return out;
+  }
+
+  /* ================================================================== daily sending plan (cold outreach, spaced through the day) */
+  const DEFAULT_PLAN = { target: 100, split: [30, 30, 30, 10], times: ['09:00', '11:30', '14:00', '16:30'], mailboxes: [], capPerMailbox: 25, minGapMin: 2, skipRamp: false, overrideCap: false };
+  function planConfig(s) {
+    const p = Object.assign({}, DEFAULT_PLAN, (s && s.plan) || {});
+    p.mailboxes = arr(p.mailboxes).map(x => clean(x, 120).toLowerCase()).filter(x => YO.normEmail(x));
+    p.split = arr(p.split).length === 4 ? p.split.map(x => Math.max(0, Number(x) || 0)) : DEFAULT_PLAN.split.slice();
+    p.times = arr(p.times).length === 4 ? p.times.map(x => /^\d{1,2}:\d{2}$/.test(x) ? x : '09:00') : DEFAULT_PLAN.times.slice();
+    p.target = Math.max(1, Math.min(500, parseInt(p.target, 10) || 100)); p.capPerMailbox = Math.max(5, Math.min(60, parseInt(p.capPerMailbox, 10) || 25));
+    p.minGapMin = Math.max(0, Math.min(30, Number(p.minGapMin))); if (isNaN(p.minGapMin)) p.minGapMin = 2;
+    return p;
+  }
+  const isColdSend = a => a && a.type === 'email' && /^Sent email /.test(a.desc || '');
+  const sameDay = (a, b) => new Date(a).toDateString() === new Date(b).toDateString();
+  const sentOn = (acts, day) => (acts || []).filter(a => isColdSend(a) && a.ts && sameDay(a.ts, day));
+  // Warm-up (playbook): about 10 a day per mailbox at the start, rising by 5 each week to the cap.
+  function rampCap(cfg, acts, now) {
+    if (cfg.skipRamp) return cfg.capPerMailbox;
+    const first = (acts || []).filter(isColdSend).map(a => a.ts).sort()[0];
+    const weeks = first ? Math.floor((now - new Date(first)) / (7 * DAY)) : 0;
+    return Math.min(cfg.capPerMailbox, 10 + 5 * weeks);
+  }
+  function splitTarget(split, target) {
+    const sum = split.reduce((a, b) => a + b, 0) || 1; const raw = split.map(x => x * target / sum);
+    const out = raw.map(Math.floor); let rest = target - out.reduce((a, b) => a + b, 0);
+    raw.map((r, i) => [r - out[i], i]).sort((a, b) => b[0] - a[0]).forEach(([, i]) => { if (rest > 0) { out[i]++; rest--; } });
+    return out;
+  }
+  const minutesOf = hhmm => { const [h, m] = hhmm.split(':').map(Number); return h * 60 + m; };
+  function planStatus(cfg, acts, queue, now) {
+    now = now || new Date();
+    const boxes = cfg.mailboxes.length || 1;
+    const perBox = rampCap(cfg, acts, now), safe = boxes * perBox;
+    const target = cfg.overrideCap ? cfg.target : Math.min(cfg.target, safe);
+    const parts = splitTarget(cfg.split, target);
+    const mins = now.getHours() * 60 + now.getMinutes();
+    let cum = 0;
+    const batches = parts.map((n, i) => { const start = minutesOf(cfg.times[i]); cum += n; return { time: cfg.times[i], target: n, cum, started: mins >= start }; });
+    const sentTodayList = sentOn(acts, now), sent = sentTodayList.length;
+    const releasedCum = batches.filter(b => b.started).reduce((a, b) => Math.max(a, b.cum), 0);
+    let current = -1; batches.forEach((b, i) => { if (b.started) current = i; });
+    const sendable = (queue || []).filter(q => q.when !== 'upcoming' && !q.noEmail);
+    const perMailbox = cfg.mailboxes.length ? cfg.mailboxes.map(m => ({ email: m, sent: sentTodayList.filter(a => a.mailbox === m).length, cap: perBox })) : [{ email: '', sent, cap: perBox }];
+    const warnings = [];
+    if (!cfg.overrideCap && cfg.target > safe) warnings.push(`Your target is ${cfg.target} a day, but ${boxes} mailbox${boxes > 1 ? 'es are' : ' is'} only safe for about ${safe} a day right now (${perBox} each). Today's plan is ${target}. You can override this in Settings, but spam folders and blocked addresses are the usual result.`);
+    if (cfg.overrideCap && cfg.target > safe) warnings.push(`Over the safe limit: ${cfg.target} planned vs about ${safe} safe. Watch for bounces and spam placement.`);
+    if (!cfg.mailboxes.length) warnings.push('Add your sending mailboxes in Settings so emails alternate between them and each person always hears from the same address.');
+    perMailbox.forEach(m => { if (m.sent >= m.cap) warnings.push(`${m.email || 'Your mailbox'} has reached its limit for today (${m.cap}).`); });
+    const available = sendable.length, dueNow = Math.max(0, Math.min(releasedCum, target) - sent);
+    const remaining = Math.max(0, target - sent);
+    if (available < remaining) warnings.push(`Only ${available} email${available === 1 ? ' is' : 's are'} ready, and the plan wants ${remaining} more. Import about ${remaining - available} more people (or start more sequences) to fill it.`);
+    return { target, rawTarget: cfg.target, safe, perBox, sent, batches, current, dueNow: Math.min(dueNow, available), releasedCum, available, remaining, perMailbox, warnings, nextBatch: batches.find(b => !b.started) || null, done: sent >= target };
+  }
+  // Each person is always emailed from the same mailbox: pick the one with the fewest people so far.
+  function mailboxPicker(mailboxes, leads) {
+    const counts = {}; mailboxes.forEach(m => { counts[m] = 0; });
+    (leads || []).forEach(l => (l.contacts || []).forEach(c => { if (c && c.seq && c.seq.mailbox && counts[c.seq.mailbox] != null) counts[c.seq.mailbox]++; }));
+    return function pick() {
+      if (!mailboxes.length) return null;
+      const m = mailboxes.slice().sort((a, b) => counts[a] - counts[b])[0]; counts[m]++; return m;
+    };
+  }
+
+  /* ================================================================== tasks (reminders, grouped) */
+  const taskIcon = note => /\bcall\b|ring|phone/i.test(note) ? '📞' : /\bsend|email|message|info/i.test(note) ? '✉️' : /\bmeeting|book|confirm|prepare|prep\b/i.test(note) ? '📅' : '✅';
+  function taskBuckets(tasks, leadsById, now, brand) {
+    now = now || new Date();
+    const sod = new Date(now); sod.setHours(0, 0, 0, 0); const eod = new Date(now); eod.setHours(23, 59, 59, 999);
+    const out = { overdue: [], today: [], upcoming: [], done: [] };
+    (tasks || []).forEach(t => {
+      const lead = leadsById[t.leadId];
+      if (brand && brand !== 'all' && lead && brandOf(lead) !== brand) return;
+      if (brand && brand !== 'all' && !lead && t.leadId) return;
+      const when = new Date(t.when);
+      const k = t.done ? 'done' : when < sod ? 'overdue' : when <= eod ? 'today' : 'upcoming';
+      out[k].push(Object.assign({ lead }, t));
+    });
+    const asc = (a, b) => new Date(a.when) - new Date(b.when);
+    out.overdue.sort(asc); out.today.sort(asc); out.upcoming.sort(asc); out.done.sort((a, b) => new Date(b.when) - new Date(a.when));
+    return out;
+  }
+
+  /* ================================================================== screens (what to show) */
+  const SCREENS = [
+    { id: 'warplan', label: 'War Plan', note: 'Just a link to a Google Sheet.' },
+    { id: 'scripts', label: 'Script Library', note: 'The old scripts. Templates replaces it.' },
+    { id: 'reminders', label: 'Reminders', note: 'Replaced by Tasks (same data).' },
+    { id: 'generator', label: 'Research', note: 'Needs your paid Anthropic key.', needsKey: true },
+    { id: 'scan', label: 'Scan a Card', note: 'Needs your paid Anthropic key.', needsKey: true },
+    { id: 'mycard', label: 'My Card', note: 'Your digital business card and QR.' },
+    { id: 'activity', label: 'Activity', note: 'Everything that happened, newest first.' },
+    { id: 'trash', label: 'Recently deleted', note: 'Restore deleted leads.' }
+  ];
+  function hiddenScreens(s) {
+    if (s && Array.isArray(s.hiddenScreens)) return s.hiddenScreens.filter(id => SCREENS.some(x => x.id === id));
+    const hasKey = !!(s && String(s.apiKey || '').trim());
+    return ['warplan', 'scripts', 'reminders'].concat(hasKey ? [] : ['generator', 'scan']);
+  }
+
   /* ================================================================== AI prompts (Groq) */
   const BASE_RULES = `You write sales messages and sales coaching for a small business owner. Hard rules:
 - Use ONLY the facts supplied below. Never invent numbers, clients, results, quotes, or details about the recipient. If a fact is missing, leave it out or ask for it.
@@ -468,6 +686,9 @@ If it is not for you, just say so and I won't follow up again.` },
         ? `\n\nTask: rewrite the draft email for this person. 3 to 6 short sentences, plain text, one easy ask. Keep every fact in the draft true. If the draft uses a fact not supplied, remove it. Output exactly: a first line "Subject: ..." then a blank line then the body. No sign-off name and no opt-out line (added automatically).`
         : `\n\nTask: rewrite the draft ${ch === 'comment' ? 'YouTube comment' : 'direct message'} for this person. ${ch === 'comment' ? 'Under 30 words, no pitch, no link.' : '2 to 4 sentences, no link, reference the specific thing they did, give something useful before asking, one small ask.'} Output only the message.`;
       user = `${leadBlock(ctx.lead, ctx.contact)}\n\nSender: ${clean(ctx.sender && ctx.sender.name)}${ctx.sender && ctx.sender.title ? ', ' + clean(ctx.sender.title) : ''}\n\nDraft to rewrite:\n${ctx.draft}\n\n${ctx.instruction ? 'Extra instruction: ' + clean(ctx.instruction, 300) : ''}`;
+    } else if (kind === 'template') {
+      system += `\n\nTask: improve this sales template step for maximum replies while following the playbook. Keep every placeholder in curly braces exactly as written (for example {first_name}, {company}, {proof}). Do not add facts, numbers or claims that are not in the company profile. ${ch === 'email' ? '3 to 6 short sentences, one easy ask, plain text, no links.' : ch === 'dm' ? '2 to 4 sentences, no link, one small ask.' : 'Under 30 words, no pitch, no link.'} Output exactly: ${ch === 'email' ? 'a first line "Subject: ..." then a blank line then the body' : 'only the message'}. Then a blank line, the line "WHY:" and one short sentence on what you changed.`;
+      user = `Audience: ${clean(ctx.audience, 200)}\nStep: ${clean(ctx.label, 80)} (${ch})\n${ctx.subject ? 'Subject: ' + clean(ctx.subject, 200) + '\n' : ''}Message:\n${ctx.draft}`;
     } else if (kind === 'objection') {
       system += `\n\nTask: help handle an objection or rejection using this method: Acknowledge what they said in your words, Associate it with something positive or with how others think about it, then Ask one question that moves forward. Never argue, never discount the price, never invent proof. Output exactly three parts:\nSPOKEN: (what to say on a call, under 60 words, ends with one question)\nWRITTEN: (the same reply as a short email or DM, under 70 words)\nNEXT STEP: (one concrete next action with a timeframe)`;
       user = `${leadBlock(ctx.lead, ctx.contact)}\n\nWhat they said: "${clean(ctx.objection, 400)}"${ctx.standard ? `\n\nOur standard reply (improve and tailor it, keep it true): ${ctx.standard}` : ''}`;
@@ -517,6 +738,8 @@ If it is not for you, just say so and I won't follow up again.` },
     DEFAULT_BRANDS, BRAND_IDS, BRAND_FIELDS, mergeBrands, brandOf, filterByBrand, missingFacts,
     SEQUENCES, seqIdsForBrand, autoSeqType, sequenceMeta, templatesFor, gapsOf, channelLabel,
     OBJECTIONS, objectionReply, objectionsFor, OUTCOMES, STAGE_ORDER, applyOutcome, taskForObjection,
-    scoreLead, nextActions, ACTION_LABEL, DEFAULT_WEIGHTS, forecast, humanize, promptFor, cleanAi, groqChat, groqModels
+    scoreLead, nextActions, ACTION_LABEL, DEFAULT_WEIGHTS, forecast, humanize, promptFor, cleanAi, groqChat, groqModels,
+    CHANNELS, TOKENS, setCustomSequences, sanitizeSequence, validateSequence, isBuiltIn, isEdited, baseSequence, newSequenceId, lintStep, sampleFor, renderSample, seqStats,
+    DEFAULT_PLAN, planConfig, rampCap, splitTarget, planStatus, mailboxPicker, sentOn, isColdSend, taskIcon, taskBuckets, SCREENS, hiddenScreens
   };
 });

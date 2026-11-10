@@ -2878,11 +2878,12 @@ setTimeout(syncReminderTriggers,6000);
 // Re-register the push token on each launch (tokens rotate) once settings are loaded.
 setTimeout(()=>{ if(settings&&settings.vapidKey&&('Notification'in window)&&Notification.permission==='granted')registerPush(); },7000);
 </script>
-<script src="outreach-core.js?v=2026-11-10.4"></script>
-<script src="sales-lexicon.js?v=2026-11-10.4"></script>
-<script src="sales-core.js?v=2026-11-10.4"></script>
-<script src="outreach.js?v=2026-11-10.4"></script>
-<script src="sales.js?v=2026-11-10.4"></script>
+<script src="outreach-core.js?v=2026-11-10.5"></script>
+<script src="sales-lexicon.js?v=2026-11-10.5"></script>
+<script src="sales-core.js?v=2026-11-10.5"></script>
+<script src="outreach.js?v=2026-11-10.5"></script>
+<script src="sales.js?v=2026-11-10.5"></script>
+<script src="workspace.js?v=2026-11-10.5"></script>
 
 <div class="bottom-nav" id="bottom-nav">
   <button class="bn-item active" id="bn-dashboard" onclick="showTab('dashboard')"><span>📊</span>Home</button>

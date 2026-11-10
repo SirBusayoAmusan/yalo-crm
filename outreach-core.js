@@ -13,7 +13,7 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
-  const VERSION = '2026-11-10.4';
+  const VERSION = '2026-11-10.5';
   const DAY = 86400000;
   const EDAYS = [0, 2, 6, 13, 20, 29, 44];                // days from first email (CRM default)
   const GAPS = EDAYS.map((d, i) => (i ? d - EDAYS[i - 1] : 0)); // days after the previous email is SENT
@@ -198,6 +198,7 @@
     meta = meta || {};
     const seq = { active: true, startedAt: new Date(now).toISOString(), type: type || null, steps: draftSteps(meta.n) };
     if (meta.gaps) seq.gaps = meta.gaps.slice();
+    if (meta.mailbox) seq.mailbox = meta.mailbox;
     return seq;
   }
   // Start a sequence for contacts[ci]. Returns 'started' | 'already' | 'no_email' | 'dnc'.
@@ -328,7 +329,8 @@
 
   /* ---------------- links ---------------- */
   const mailto = (to, subject, body) => 'mailto:' + encodeURIComponent(to) + '?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
-  const gmail = (to, subject, body) => 'https://mail.google.com/mail/?view=cm&fs=1&to=' + encodeURIComponent(to) + '&su=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
+  // authuser (optional): the Google account to send from, so each person is always emailed from the same mailbox
+  const gmail = (to, subject, body, authuser) => 'https://mail.google.com/mail/?view=cm&fs=1' + (authuser ? '&authuser=' + encodeURIComponent(authuser) : '') + '&to=' + encodeURIComponent(to) + '&su=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
   function waNumber(phone) {
     let d = String(phone || '').replace(/[^\d+]/g, '');
     if (!d) return '';

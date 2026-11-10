@@ -230,3 +230,126 @@ test('structural tell checks do not misfire: no template step is flagged, real t
   assert.ok(YS.humanize('We help in three ways. Fast, cheap, and good.').flags.some(f => f.id === 'triad'));
   assert.ok(YS.humanize('Great idea \u{1F680}').flags.some(f => f.id === 'rocket'));
 });
+
+/* ===================== template editor, plan, tasks, screens ===================== */
+const resetSeq = () => YS.setCustomSequences({});
+test('custom sequences: override a built-in, add a new one, reject bad ones, reset', () => {
+  resetSeq();
+  const base = YS.baseSequence('yalo-lease'); assert.equal(base.steps.length, 7);
+  const edited = JSON.parse(JSON.stringify(base)); edited.steps[0].subject = 'My own subject'; edited.name = 'My CFO emails';
+  const id2 = YS.newSequenceId('yalo', YS.SEQUENCES); assert.match(id2, /^custom-yalo-/);
+  const added = { brand: 'clearpath', name: 'Quick DM', steps: [{ day: 0, channel: 'dm', label: 'Hi', body: 'Hi {first_name}, loved {hook}. Do you capture leads from your videos?' }] };
+  const ids = YS.setCustomSequences({ 'yalo-lease': edited, [id2]: added, 'bad id!': added, 'custom-yalo-bad': { brand: 'yalo', name: 'x', steps: [{ day: 0, channel: 'email', label: 'a', subject: '', body: '' }] } });
+  assert.deepEqual(ids.sort(), ['yalo-lease', id2].sort());
+  assert.equal(YS.SEQUENCES['yalo-lease'].steps[0].subject, 'My own subject'); assert.ok(YS.isEdited('yalo-lease')); assert.ok(YS.isBuiltIn('yalo-lease')); assert.ok(!YS.isBuiltIn(id2));
+  assert.equal(YS.SEQUENCES[id2].brand, 'clearpath'); assert.ok(YS.seqIdsForBrand('clearpath').includes(id2));
+  assert.equal(YS.SEQUENCES['yalo-staff'].steps.length, 7, 'untouched built-ins stay');
+  assert.equal(YS.SEQUENCES['custom-yalo-bad'], undefined);
+  const meta = YS.sequenceMeta(mkLead(), { title: 'CFO' }, id2); assert.equal(meta.n, 1);
+  YS.setCustomSequences({}); assert.equal(YS.SEQUENCES['yalo-lease'].steps[0].subject, YS.baseSequence('yalo-lease').steps[0].subject); assert.equal(YS.SEQUENCES[id2], undefined);
+});
+
+test('sequence sanitising and validation', () => {
+  const s = YS.sanitizeSequence({ brand: 'nope', name: '  <b>X</b> ', steps: [{ day: '3', channel: 'fax', label: '', subject: ' Hi ', body: 'a<script>b' }, { day: -4, channel: 'dm', body: 'ok' }] }, 'clearpath');
+  assert.equal(s.brand, 'clearpath'); assert.equal(s.name, 'bX/b'); assert.equal(s.steps[0].channel, 'email'); assert.equal(s.steps[0].day, 3); assert.equal(s.steps[0].label, 'Step 1'); assert.ok(!/</.test(s.steps[0].body));
+  assert.equal(s.steps[1].day, 0);
+  const errs = YS.validateSequence(s); assert.ok(errs.some(e => /comes before/.test(e)), errs.join('|'));
+  assert.ok(YS.validateSequence({ steps: [] })[0].match(/at least one step/));
+  assert.equal(YS.sanitizeSequence({ steps: Array.from({ length: 30 }, () => ({ day: 1, body: 'x', subject: 's' })) }).steps.length, 12);
+});
+
+test('playbook checks: good and bad email, DM and comment', () => {
+  const good = { channel: 'email', subject: 'Rent at Acme', body: 'Hi {first_name},\n\nMost businesses pay a year of rent upfront. YALO pays the landlord and you repay monthly.\n\nIs this on your radar?' };
+  assert.ok(YS.lintStep(good, 0).every(x => x.ok), JSON.stringify(YS.lintStep(good, 0).filter(x => !x.ok)));
+  const bad = { channel: 'email', subject: 'RE: Amazing opportunity!!!', body: 'Hi, we leverage a robust, seamless platform — see https://x.com and https://y.com. Is it good? Want a call? Ready? ' + 'More text. '.repeat(30) };
+  const fails = YS.lintStep(bad, 0).filter(x => !x.ok).map(x => x.text).join(' | ');
+  for (const re of [/Subject/, /Too long/, /Only one main question|More than two/, /links/i, /long dashes|Replace long/, /machine-written/i, /name/i]) assert.match(fails, re);
+  assert.ok(YS.lintStep({ channel: 'dm', body: 'Hi {first_name}, saw {hook}. Do you capture leads? https://x.com' }, 1).some(x => !x.ok && /link/i.test(x.text)));
+  assert.ok(YS.lintStep({ channel: 'comment', body: 'Great video, sign up for my offer today' }, 0).some(x => !x.ok && /pitch/i.test(x.text)));
+  assert.ok(YS.lintStep({ channel: 'email', subject: 's', body: 'Hi {first_name}, {nonsense} here? ' }, 1).some(x => !x.ok && /\{nonsense\}/.test(x.text)));
+});
+
+test('preview renders a step against a sample person and the brand facts', () => {
+  const r = YS.renderSample({ channel: 'email', label: 'x', subject: 'Rent at {company}', body: 'Hi {first_name}, {proof} Ask {sender_name}?' }, 'yalo', brands.yalo, { name: 'Busayo' });
+  assert.equal(r.subject, 'Rent at Acme Ltd'); assert.match(r.body, /Hi Jane, YALO works with 163 businesses/); assert.match(r.body, /Busayo/);
+  const c = YS.renderSample({ channel: 'dm', label: 'x', subject: '', body: 'Loved {hook}' }, 'clearpath', brands.clearpath, {});
+  assert.match(c.body, /how he edits in one hour/); assert.equal(c.channel, 'dm');
+});
+
+test('what is working: replies per step and per sequence', () => {
+  const mk = (type, statuses) => { const l = mkLead(); l.contacts[0].seq = { active: true, type, steps: statuses.map(s => ({ status: s })) }; return l; };
+  const st = YS.seqStats([mk('yalo-lease', ['sent', 'sent', 'replied', 'draft']), mk('yalo-lease', ['sent', 'draft', 'draft', 'draft']), mk('clearpath-creator', ['replied'])]);
+  assert.equal(st['yalo-lease'].sent, 4); assert.equal(st['yalo-lease'].replied, 1); assert.deepEqual(st['yalo-lease'].steps.map(s => s.sent), [2, 1, 1, 0]); assert.equal(st['yalo-lease'].steps[2].replied, 1);
+  assert.equal(st['clearpath-creator'].replied, 1);
+  const legacy = mkLead({ contactedAt: T0.toISOString() }); legacy.emails[0].status = 'sent'; assert.equal(YS.seqStats([legacy])['office'].sent, 1);
+});
+
+test('daily plan: 30/30/30/10 spacing, safe limits for two mailboxes, warm-up, overrides', () => {
+  assert.deepEqual(YS.splitTarget([30, 30, 30, 10], 100), [30, 30, 30, 10]); assert.deepEqual(YS.splitTarget([30, 30, 30, 10], 50), [15, 15, 15, 5]);
+  assert.equal(YS.splitTarget([30, 30, 30, 10], 37).reduce((a, b) => a + b, 0), 37);
+  const cfg = YS.planConfig({ plan: { mailboxes: ['A@x.com', 'b@y.com', 'junk'] } });
+  assert.deepEqual(cfg.mailboxes, ['a@x.com', 'b@y.com']); assert.equal(cfg.target, 100); assert.deepEqual(cfg.split, [30, 30, 30, 10]);
+  const noon = new Date(2026, 10, 10, 12, 0), early = new Date(2026, 10, 10, 8, 0), late = new Date(2026, 10, 10, 17, 0);
+  const sendQ = n => Array.from({ length: n }, () => ({ when: 'today', noEmail: false }));
+  assert.equal(YS.rampCap(cfg, [], noon), 10, 'fresh mailboxes start at 10 a day each');
+  const old = [{ type: 'email', desc: 'Sent email 1 (x) to A', ts: new Date(2026, 9, 1).toISOString() }];
+  assert.equal(YS.rampCap(cfg, old, noon), 25, 'after five weeks they are at the cap');
+  let s = YS.planStatus(cfg, old, sendQ(200), noon);
+  assert.equal(s.safe, 50); assert.equal(s.target, 50, 'two mailboxes cap a 100 target at 50'); assert.equal(s.rawTarget, 100); assert.match(s.warnings[0], /only safe for about 50/);
+  assert.deepEqual(s.batches.map(b => b.target), [15, 15, 15, 5]); assert.equal(s.current, 1); assert.equal(s.dueNow, 30);
+  s = YS.planStatus(Object.assign({}, cfg, { overrideCap: true }), old, sendQ(200), noon);
+  assert.equal(s.target, 100); assert.deepEqual(s.batches.map(b => b.target), [30, 30, 30, 10]); assert.equal(s.dueNow, 60); assert.match(s.warnings.join(' '), /Over the safe limit/);
+  assert.equal(YS.planStatus(cfg, old, sendQ(200), early).dueNow, 0, 'nothing is due before the first batch'); assert.equal(YS.planStatus(Object.assign({}, cfg, { overrideCap: true }), old, sendQ(200), new Date(2026, 10, 10, 15, 0)).dueNow, 90); assert.equal(YS.planStatus(Object.assign({}, cfg, { overrideCap: true }), old, sendQ(200), late).dueNow, 100);
+  const sentToday = Array.from({ length: 20 }, (_, i) => ({ type: 'email', desc: 'Sent email 1 (x) to P' + i, ts: new Date(2026, 10, 10, 9, i).toISOString(), mailbox: i % 2 ? 'b@y.com' : 'a@x.com' }));
+  s = YS.planStatus(cfg, old.concat(sentToday), sendQ(10), noon);
+  assert.equal(s.sent, 20); assert.equal(s.dueNow, 10, 'released by now minus sent, never more than ready'); assert.deepEqual(s.perMailbox.map(m => m.sent), [10, 10]); assert.match(s.warnings.join(' '), /Only 10 emails are ready/);
+  assert.equal(YS.sentOn([{ type: 'email', desc: 'Sent DM 2 (x)', ts: noon.toISOString() }], noon).length, 0, 'only emails count toward the daily plan');
+  assert.equal(YS.planStatus(YS.planConfig({ plan: { mailboxes: [] } }), [], [], noon).warnings.some(w => /Add your sending mailboxes/.test(w)), true);
+  const full = YS.planStatus(cfg, old.concat(Array.from({ length: 50 }, (_, i) => ({ type: 'email', desc: 'Sent email 1 (x) to P', ts: new Date(2026, 10, 10, 9, 1).toISOString(), mailbox: i % 2 ? 'b@y.com' : 'a@x.com' }))), sendQ(10), late);
+  assert.ok(full.done); assert.match(full.warnings.join(' '), /reached its limit/);
+});
+
+test('each person keeps one mailbox: picker balances and remembers', () => {
+  const l = mkLead(); l.contacts[0].seq = { active: true, steps: [], mailbox: 'a@x.com' };
+  const pick = YS.mailboxPicker(['a@x.com', 'b@y.com'], [l]); assert.deepEqual([pick(), pick(), pick(), pick()], ['b@y.com', 'a@x.com', 'b@y.com', 'a@x.com']);
+  assert.equal(YS.mailboxPicker([], [])(), null);
+  const lead = mkLead(); const meta = Object.assign(YS.sequenceMeta(lead, lead.contacts[0]), { mailbox: 'b@y.com' });
+  YO.startSequence(lead, 0, T0, meta.type, meta); assert.equal(lead.contacts[0].seq.mailbox, 'b@y.com');
+  assert.match(YO.gmail('t@x.com', 's', 'b', 'a@x.com'), /authuser=a%40x\.com&to=t%40x\.com/); assert.ok(!/authuser/.test(YO.gmail('t@x.com', 's', 'b')));
+});
+
+test('tasks: overdue, today, upcoming, done; brand filter; icons', () => {
+  const y = mkLead({ id: 'Y', brand: 'yalo' }), c = mkLead({ id: 'C', brand: 'clearpath' });
+  const now = new Date(2026, 10, 10, 12, 0), d = (days, h = 10) => new Date(2026, 10, 10 + days, h, 0).toISOString();
+  const tasks = [{ id: 1, leadId: 'Y', when: d(-2), note: 'Call Jane' }, { id: 2, leadId: 'Y', when: d(0, 16), note: 'Send info' }, { id: 3, leadId: 'C', when: d(1), note: 'x' }, { id: 4, leadId: 'Y', when: d(-1), note: 'old', done: true }, { id: 5, leadId: 'Y', when: d(0, 8), note: 'earlier today' }];
+  const b = YS.taskBuckets(tasks, { Y: y, C: c }, now, 'all');
+  assert.deepEqual(b.overdue.map(t => t.id), [1]); assert.deepEqual(b.today.map(t => t.id), [5, 2]); assert.deepEqual(b.upcoming.map(t => t.id), [3]); assert.deepEqual(b.done.map(t => t.id), [4]);
+  assert.deepEqual(YS.taskBuckets(tasks, { Y: y, C: c }, now, 'clearpath').upcoming.map(t => t.id), [3]); assert.equal(YS.taskBuckets(tasks, { Y: y, C: c }, now, 'clearpath').overdue.length, 0);
+  assert.equal(YS.taskIcon('Call Jane'), '📞'); assert.equal(YS.taskIcon('Send info'), '✉️'); assert.equal(YS.taskIcon('Confirm meeting'), '📅'); assert.equal(YS.taskIcon('Other'), '✅');
+});
+
+test('which screens are shown: unnecessary ones hidden, key-based ones follow the key', () => {
+  assert.deepEqual(YS.hiddenScreens({}).sort(), ['generator', 'reminders', 'scan', 'scripts', 'warplan']);
+  assert.deepEqual(YS.hiddenScreens({ apiKey: 'sk-x' }).sort(), ['reminders', 'scripts', 'warplan']);
+  assert.deepEqual(YS.hiddenScreens({ hiddenScreens: ['trash', 'bogus'] }), ['trash']); assert.deepEqual(YS.hiddenScreens({ hiddenScreens: [] }), []);
+});
+
+test('replies: email reply outcomes wording, out of office, call-only outcomes', () => {
+  const l = mkLead({ stage: 'Contacted' }); YO.startSequence(l, 0, T0, 'yalo-lease', YS.sequenceMeta(l, l.contacts[0]));
+  const r = YS.applyOutcome(l, 0, 'ooo', T0, { via: 'email' });
+  assert.match(r.activity, /^Reply from Jane Doe: out of office/); assert.equal(new Date(r.tasks[0].when) - T0, 7 * D);
+  assert.match(YS.applyOutcome(mkLead(), 0, 'interested', T0).activity, /^Call with/);
+  assert.ok(YS.OUTCOMES.filter(o => !o.callOnly).every(o => o.id !== 'no_answer' && o.id !== 'voicemail')); assert.ok(YS.OUTCOMES.find(o => o.id === 'ooo').replyOnly);
+});
+
+test('AI: template improvement prompt keeps placeholders and facts', () => {
+  const p = YS.promptFor('template', { brand: brands.yalo, channel: 'email', audience: 'CFOs', label: 'Step 1', subject: 'Rent', draft: 'Hi {first_name}, {proof}' });
+  assert.match(p.system, /Keep every placeholder in curly braces/); assert.match(p.system, /WHY:/); assert.match(p.user, /Hi \{first_name\}/);
+});
+
+test('sequences contain no undefined values (the database refuses them)', () => {
+  const walk = (o, p) => { if (o === undefined) throw new Error('undefined at ' + p); if (o && typeof o === 'object') for (const [k, v] of Object.entries(o)) walk(v, p + '.' + k); };
+  walk(YS.sanitizeSequence({ brand: 'yalo', name: 'x', steps: [{ day: 0, channel: 'email', label: 'a', subject: 's', body: 'b' }] }), 'seq');
+  walk(YS.sanitizeSequence(YS.baseSequence('yalo-lease')), 'dup');
+  walk(YS.planConfig({ plan: { mailboxes: ['a@x.com'] } }), 'plan');
+});

@@ -216,4 +216,5 @@ test('index.html script tags carry the same build version as the code (cache-bus
   const html = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'index.html'), 'utf8');
   assert.ok(html.includes('outreach-core.js?v=' + YO.VERSION));
   assert.ok(html.includes('outreach.js?v=' + YO.VERSION));
+  for (const f of ['sales-core.js', 'sales.js', 'workspace.js', 'sales-lexicon.js']) assert.ok(html.includes(f + '?v=' + YO.VERSION), f);
 });
