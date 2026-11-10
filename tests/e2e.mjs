@@ -76,8 +76,9 @@ const CSV = [
 ].join('\n');
 
 const browser = await chromium.launch();
-const ctx = await browser.newContext({ viewport: { width: 820, height: 1180 }, deviceScaleFactor: 1 });
-const page = await ctx.newPage();
+const VW = Number(process.env.VW || 820), VH = Number(process.env.VH || 1180), MOBILE = process.env.MOBILE === '1';
+const ctx = await browser.newContext({ viewport: { width: VW, height: VH }, deviceScaleFactor: MOBILE ? 2 : 1, isMobile: MOBILE, hasTouch: MOBILE });
+const page = await ctx.newPage(); page.setDefaultTimeout(7000);
 const errors = [];
 page.on('pageerror', e => errors.push('pageerror: ' + e.message));
 page.on('console', m => { if (m.type() === 'error' && !/Failed to load resource|net::ERR/.test(m.text())) errors.push('console: ' + m.text()); });
@@ -101,6 +102,7 @@ await page.addInitScript(({ leads, settings }) => {
 
 const step = async (name, fn) => { try { await fn(); console.log('PASS', name); } catch (e) { console.log('FAIL', name, '\n   ', e.message.slice(0,700)); await page.screenshot({ path: `${OUTDIR}/FAIL-${name.replace(/\W+/g, '_')}.png` }); process.exitCode = 1; } };
 const db = () => page.evaluate(() => JSON.parse(JSON.stringify(window.__db)));
+const more = async card => { await card.locator('.oq-more summary').first().click(); };
 const shot = n => page.screenshot({ path: `${OUTDIR}/${n}.png` });
 
 await page.goto(BASE + '/index.html');
@@ -127,7 +129,7 @@ await step('import: paste CSV, columns auto-mapped, preview counts correct', asy
   await page.getByRole('button', { name: 'Read pasted text' }).click();
   await page.waitForSelector('#imp-go');
   const t = await page.locator('#imp-body').innerText();
-  assert.match(t, /Work Email/); assert.match(t, /\d+ new companies/);
+  assert.match(t, /Columns matched/); assert.match(t, /\d+ new companies/);
   const pills = await page.locator('.imp-pill').allInnerTexts();
   const get = k => Number((pills.find(p => p.includes(k)) || '0').split(' ')[0]);
   assert.equal(get('new companies'), 4);          // Zed Logistics, StopCo, Quiet Inc, Evil Co
@@ -197,7 +199,7 @@ await step('send: "I sent it" marks sent, stores text, schedules next +2 days, l
 
 await step('replied: stops sequence, stage -> Replied, appears under Replies to handle (and stops ALL people at that company)', async () => {
   // Kemi is at the same company as Ada. Mark Kemi replied -> company stage Replied -> Ada stops too.
-  await page.locator('.oq-card', { hasText: 'Kemi Ola' }).getByRole('button', { name: /Replied/ }).click();
+  { const k = page.locator('.oq-card', { hasText: 'Kemi Ola' }); await more(k); await k.getByRole('button', { name: /They replied/ }).click(); }
   await page.waitForTimeout(500);
   const d = await db();
   const zed = Object.values(d.leads).find(l => l.company.startsWith('Zed'));
@@ -208,7 +210,7 @@ await step('replied: stops sequence, stage -> Replied, appears under Replies to 
 });
 
 await step('do-not-contact: blocks person, saved in settings, survives re-import', async () => {
-  await page.locator('.oq-card', { hasText: 'Dayo Stop' }).getByRole('button', { name: /Don't contact/ }).click();
+  { const k = page.locator('.oq-card', { hasText: 'Dayo Stop' }); await more(k); await k.getByRole('button', { name: /Don't contact/ }).click(); }
   await page.waitForTimeout(600);
   let d = await db();
   const stop = Object.values(d.leads).find(l => l.company === 'StopCo');
@@ -232,8 +234,10 @@ await step('drawer: Emails tab shows people chips, progress, step cards; edit sa
   const id = Object.values((await db()).leads).find(l => l.company === 'Idle Corp').id;
   await page.evaluate(i => OUT.open(i, 0, 'emails'), id);
   await page.waitForSelector('#d-content .oq-card, #d-content details');
+  await page.waitForTimeout(800); // let the slide-in animation finish before the screenshot
   assert.match(await page.locator('#d-content').innerText(), /sequence progress/i);
   await shot('05-drawer-emails');
+  await page.locator('#d-content .oq-more summary', { hasText: 'More' }).first().click();
   await page.locator('#d-content').getByRole('button', { name: /Edit/ }).first().click();
   await page.fill('#ed-subj', 'My custom subject');
   await page.fill('#ed-body', 'Hi [FNAME], custom body for [CONAME].');
@@ -266,7 +270,7 @@ await step('home after all that: strip + Today consistent', async () => {
   await page.evaluate(() => showTab('dashboard'));
   await page.waitForTimeout(300);
   const strip = await page.locator('#oq-dash-strip').innerText();
-  assert.match(strip, /sent this week/i);
+  assert.match(strip, /sent 7d/i);
   await shot('06-home-after');
 });
 
@@ -289,6 +293,18 @@ await step('existing features untouched: Leads list, Overview tab contacts, Add 
   const d = await db();
   assert.ok(Object.values(d.leads).some(l => l.company === 'Manual Add Ltd'));
   assert.equal(Object.keys(d.notifications).length, before + 1, 'manual add must still raise its notification');
+});
+
+
+await step('no sideways page scroll on any screen (phone and tablet)', async () => {
+  const bad = [];
+  for (const tab of ['dashboard', 'leads', 'outreach', 'reminders', 'scripts', 'activity', 'settings']) {
+    await page.evaluate(t => showTab(t), tab);
+    await page.waitForTimeout(250);
+    const m = await page.evaluate(() => ({ sw: document.documentElement.scrollWidth, iw: window.innerWidth }));
+    if (m.sw > m.iw + 1) bad.push(`${tab}: page is ${m.sw}px wide in a ${m.iw}px window`);
+  }
+  assert.deepEqual(bad, []);
 });
 
 await step('no JS errors during the whole run', async () => { assert.deepEqual(errors, []); });

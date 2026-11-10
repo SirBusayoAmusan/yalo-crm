@@ -13,6 +13,7 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
+  const VERSION = '2026-11-10.2';
   const DAY = 86400000;
   const EDAYS = [0, 2, 6, 13, 20, 29, 44];                // days from first email (CRM default)
   const GAPS = EDAYS.map((d, i) => (i ? d - EDAYS[i - 1] : 0)); // days after the previous email is SENT
@@ -452,7 +453,7 @@
   }
 
   return {
-    EDAYS, GAPS, STEPS, STOP_STAGES, FIELD_LABELS,
+    VERSION, EDAYS, GAPS, STEPS, STOP_STAGES, FIELD_LABELS,
     clean, esc, parseCsv, detectMapping, applyMapping, normEmail, normLinkedin, normDomain, normCompany, normName,
     seqState, stopReason, nextIdx, dueDate, buildQueue, startSequence, markSent, markReplied, setDnc, setPaused, editStep,
     autoType, firstName, fmtLease, renderStep, addFooter, leftoverTokens, mailto, gmail, waNumber, waLink,
