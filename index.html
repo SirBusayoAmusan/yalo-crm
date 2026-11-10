@@ -583,6 +583,29 @@ body.authed .login-screen{display:none}
 .card-actions{grid-template-columns:1fr 1fr}
 .bell{width:40px;height:40px}
 }
+
+/* ---- Phone: Leads list as cards instead of a sideways-scrolling table ---- */
+@media(max-width:768px){
+  #table-view .tw{background:transparent;border:none;box-shadow:none;overflow:visible;border-radius:0}
+  #table-view table{display:block;width:100%;min-width:0}
+  #table-view thead{display:none}
+  #table-view tbody{display:block}
+  #table-view tr{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 12px;align-items:center;background:#fff;border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:10px;box-shadow:var(--shadow)}
+  #table-view td{display:block;padding:0;border:none;min-width:0}
+  #table-view td:nth-child(1){grid-column:1;grid-row:1}
+  #table-view td:nth-child(1) .co-name{font-size:15px;font-weight:800}
+  #table-view td:nth-child(4){grid-column:2;grid-row:1;justify-self:end}
+  #table-view td:nth-child(3){grid-column:1 / -1;grid-row:2}
+  #table-view td:nth-child(2){grid-column:1;grid-row:3}
+  #table-view td:nth-child(6){grid-column:2;grid-row:3;justify-self:end}
+  #table-view td:nth-child(5){grid-column:1;grid-row:4}
+  #table-view td:nth-child(7){grid-column:2;grid-row:4;justify-self:end}
+  #table-view td:nth-child(8){grid-column:1 / -1;grid-row:5;margin-top:6px}
+  #table-view td:nth-child(8) .btn{min-height:44px;flex:1}
+  #table-view td:nth-child(8) .btn:last-child{flex:0 0 52px}
+  #table-view td[colspan]{grid-column:1 / -1;grid-row:auto;padding:28px 8px;text-align:center}
+  #table-view tr:hover{background:#fff}
+}
 </style>
 </head>
 <body>
@@ -1103,6 +1126,7 @@ body.authed .login-screen{display:none}
     <div class="sheet-grip"></div>
     <div class="sheet-title">More</div>
     <div class="sheet-grid">
+      <button class="sheet-item" onclick="moreGo('mycard')"><span>🪪</span>My Card</button>
       <button class="sheet-item" onclick="moreGo('generator')"><span>🔍</span>Research</button>
       <button class="sheet-item" onclick="moreGo('activity')"><span>⚡</span>Activity</button>
       <button class="sheet-item" onclick="moreGo('scripts')"><span>📝</span>Scripts</button>
@@ -2854,14 +2878,14 @@ setTimeout(syncReminderTriggers,6000);
 // Re-register the push token on each launch (tokens rotate) once settings are loaded.
 setTimeout(()=>{ if(settings&&settings.vapidKey&&('Notification'in window)&&Notification.permission==='granted')registerPush(); },7000);
 </script>
-<script src="outreach-core.js?v=2026-11-10.2"></script>
-<script src="outreach.js?v=2026-11-10.2"></script>
+<script src="outreach-core.js?v=2026-11-10.3"></script>
+<script src="outreach.js?v=2026-11-10.3"></script>
 
 <div class="bottom-nav" id="bottom-nav">
   <button class="bn-item active" id="bn-dashboard" onclick="showTab('dashboard')"><span>📊</span>Home</button>
   <button class="bn-item" id="bn-leads" onclick="showTab('leads')"><span>🏢</span>Leads</button>
   <button class="bn-item" id="bn-scan" onclick="showTab('scan')"><span>📸</span>Scan</button>
-  <button class="bn-item" id="bn-mycard" onclick="showTab('mycard')"><span>🪪</span>My Card</button>
+  <button class="bn-item" id="bn-outreach" onclick="showTab('outreach')"><span>📬</span>Queue</button>
   <button class="bn-item" id="bn-reminders" onclick="showTab('reminders')"><span>⏰</span>Remind</button>
   <button class="bn-item" id="bn-more" onclick="toggleMore(true)"><span>☰</span>More</button>
 </div>

@@ -296,6 +296,28 @@ await step('existing features untouched: Leads list, Overview tab contacts, Add 
 });
 
 
+
+await step('phone layout: Queue is in the bottom bar; Leads list is cards that fit the screen (no sideways scroll inside it)', async () => {
+  if (!MOBILE) return;
+  const nav = await page.locator('#bottom-nav').innerText();
+  assert.match(nav, /queue/i); assert.doesNotMatch(nav, /my card/i);
+  await page.evaluate(() => showTab('leads')); await page.waitForTimeout(300);
+  const m = await page.evaluate(() => {
+    const tw = document.querySelector('#table-view .tw'); const rows = [...document.querySelectorAll('#table-view tbody tr')];
+    return { twScroll: tw.scrollWidth, twClient: tw.clientWidth, rows: rows.length, outside: rows.filter(r => { const b = r.getBoundingClientRect(); return b.left < 0 || b.right > innerWidth + 1; }).length,
+      thead: getComputedStyle(document.querySelector('#table-view thead')).display, cutText: rows.some(r => r.scrollWidth > r.clientWidth + 1) };
+  });
+  assert.ok(m.rows >= 4); assert.equal(m.outside, 0, 'a lead card runs off the screen'); assert.equal(m.thead, 'none');
+  assert.ok(m.twScroll <= m.twClient + 1, `table box scrolls sideways (${m.twScroll} > ${m.twClient})`); assert.equal(m.cutText, false);
+  await shot('07-leads-cards');
+  // empty state fits too
+  await page.evaluate(() => { document.getElementById('lsearch').value = 'zzzz-no-match'; renderLeads(); });
+  const empty = await page.evaluate(() => { const td = document.querySelector('#table-view td[colspan]'); const b = td.getBoundingClientRect(); return { right: b.right, iw: innerWidth, txt: td.innerText }; });
+  assert.ok(empty.right <= empty.iw + 1); assert.match(empty.txt, /No leads yet/);
+  await shot('08-leads-empty');
+  await page.evaluate(() => { document.getElementById('lsearch').value = ''; renderLeads(); });
+});
+
 await step('no sideways page scroll on any screen (phone and tablet)', async () => {
   const bad = [];
   for (const tab of ['dashboard', 'leads', 'outreach', 'reminders', 'scripts', 'activity', 'settings']) {

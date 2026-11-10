@@ -107,9 +107,6 @@
       ni.innerHTML = '<span style="font-size:17px">📬</span><span id="oq-nav-label">Email Queue</span>';
       leadsNi.after(ni);
     }
-    const grid = document.querySelector('#more-sheet .sheet-grid');
-    if (grid) { const b = document.createElement('button'); b.className = 'sheet-item'; b.setAttribute('onclick', "moreGo('outreach')"); b.innerHTML = '<span>📬</span>Email Queue'; grid.prepend(b); }
-
     // tab
     const tab = document.createElement('div');
     tab.className = 'content'; tab.id = 'tab-outreach'; tab.style.display = 'none';
@@ -209,6 +206,7 @@
     const el = $('oq-nav-label'); if (!el) return;
     const n = YO.buildQueue(live(), new Date()).filter(x => x.when !== 'upcoming').length;
     el.textContent = n ? `Email Queue (${n})` : 'Email Queue';
+    const bn = $('bn-outreach'); if (bn && bn.lastChild) bn.lastChild.textContent = n ? `Queue ${n}` : 'Queue';
   }
 
   /* ====================================================================
