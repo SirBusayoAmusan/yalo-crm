@@ -20,9 +20,9 @@ try {
   });
 } catch (e) { /* messaging optional; app shell still works */ }
 
-const CACHE = 'yalo-crm-shell-v3';
+const CACHE = 'yalo-crm-shell-v4';
 const LIBS = 'yalo-crm-libs-v1';
-const SHELL = ['index.html', 'card.html', 'manifest.json', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png', 'favicon-32.png', 'icon.svg'];
+const SHELL = ['index.html', 'outreach-core.js', 'outreach.js', 'card.html', 'manifest.json', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png', 'favicon-32.png', 'icon.svg'];
 const LIB_HOSTS = ['www.gstatic.com', 'cdnjs.cloudflare.com', 'fonts.googleapis.com', 'fonts.gstatic.com'];
 
 self.addEventListener('install', e => {
