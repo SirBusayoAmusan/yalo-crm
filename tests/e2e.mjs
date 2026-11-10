@@ -95,6 +95,21 @@ await page.route('**/*', route => {
   if (u.includes('qrcode')) return route.fulfill(body('window.QRCode=function(){};'));
   return route.fulfill({ status: 200, contentType: 'text/css', body: '' });
 });
+const groqCalls = [];
+await page.route('https://api.groq.com/**', async route => {
+  const req = route.request(); const cors = { 'access-control-allow-origin': '*', 'access-control-allow-headers': 'authorization,content-type', 'access-control-allow-methods': 'GET,POST,OPTIONS' };
+  if (req.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: cors });
+  if (req.url().endsWith('/models')) return route.fulfill({ status: 200, headers: cors, contentType: 'application/json', body: JSON.stringify({ data: [{ id: 'llama-3.3-70b-versatile' }, { id: 'whisper-large-v3' }, { id: 'openai/gpt-oss-120b' }] }) });
+  const body = JSON.parse(req.postData() || '{}'); groqCalls.push({ auth: req.headers()['authorization'], body });
+  const sys = (body.messages[0] || {}).content || '';
+  let text = 'ok';
+  if (/rewrite the draft email/.test(sys)) text = 'Subject: Rent at Idle Corp\n\nHi Ife,\n\nWe will delve into this \u2014 a robust, seamless way to spread your rent. Is it on your radar?';
+  else if (/rewrite the draft YouTube comment|rewrite the draft direct message/.test(sys)) text = 'Loved how you explained the editing part. Which tool do you use?';
+  else if (/Acknowledge what they said/.test(sys)) text = 'SPOKEN: That is fair. What would you need to see?\nWRITTEN: Fair point. What would help you decide?\nNEXT STEP: Send numbers tomorrow.';
+  else if (/call prep card/.test(sys)) text = 'WHO THEY ARE\nCEO at Idle Corp\nOPENING\nHi Ife';
+  else if (/build an offer/.test(sys)) text = 'DREAM OUTCOME\nKeep cash in the business\nNAME\nCash-Kept Lease Plan';
+  return route.fulfill({ status: 200, headers: cors, contentType: 'application/json', body: JSON.stringify({ choices: [{ message: { content: text } }] }) });
+});
 await page.addInitScript(({ leads, settings }) => {
   window.__db = { leads, activities: {}, settings: { main: settings }, reminders: {}, notifications: {}, pushTokens: {}, publicProfile: {} };
   Object.defineProperty(Notification, 'permission', { get: () => 'denied' });
@@ -102,6 +117,7 @@ await page.addInitScript(({ leads, settings }) => {
 
 const step = async (name, fn) => { try { await fn(); console.log('PASS', name); } catch (e) { console.log('FAIL', name, '\n   ', e.message.slice(0,700)); await page.screenshot({ path: `${OUTDIR}/FAIL-${name.replace(/\W+/g, '_')}.png` }); process.exitCode = 1; } };
 const db = () => page.evaluate(() => JSON.parse(JSON.stringify(window.__db)));
+const YO_dueDays = lead => { const c = lead.contacts[0]; const steps = c.seq.steps; const gaps = c.seq.gaps; const last = steps.map((s, i) => (s.sentAt ? i : -1)).reduce((a, b) => Math.max(a, b), -1); const next = last + 1; return Math.round(gaps[next]); };
 const more = async card => { await card.locator('.oq-more summary').first().click(); };
 const shot = n => page.screenshot({ path: `${OUTDIR}/${n}.png` });
 
@@ -169,15 +185,15 @@ await step('queue: due items listed with Gmail + Mail links; idle lead sequence 
   assert.match(mt, /^mailto:/);
 });
 
-await step('queue: office-lease email asks for annual rent; saving it fills [LEASE]', async () => {
-  const card = page.locator('.oq-card', { hasText: 'Ada Obi' });
-  assert.match(await card.innerText(), /needs the company's annual rent/);
-  await card.locator('input[type=number]').fill('12000000');
-  await card.getByRole('button', { name: 'Save' }).click();
-  await page.waitForTimeout(400);
-  assert.doesNotMatch(await page.locator('.oq-card', { hasText: 'Ada Obi' }).innerText(), /needs the company's annual rent/);
-  const lead = Object.values((await db()).leads).find(l => l.company.startsWith('Zed'));
-  assert.equal(lead.lease, 12000000);
+await step('YALO email: the annual rent is optional, and when saved it shows in the follow-up wording', async () => {
+  const zed = Object.values((await db()).leads).find(l => l.company.startsWith('Zed'));
+  await page.evaluate(i => OUT.open(i, 0, 'emails'), zed.id);
+  await page.waitForSelector('#lease-drawer');
+  const before = await page.locator('#d-content').innerText();
+  assert.doesNotMatch(before, /Still contains/);                       // no blocking placeholder any more
+  await page.fill('#lease-drawer', '12000000'); await page.dispatchEvent('#lease-drawer', 'change'); await page.waitForTimeout(400);
+  assert.equal(Object.values((await db()).leads).find(l => l.id === zed.id).lease, 12000000);
+  await page.evaluate(() => closeDrawer()); await page.waitForTimeout(500);
 });
 
 await step('send: "I sent it" marks sent, stores text, schedules next +2 days, logs activity, moves to Contacted', async () => {
@@ -318,9 +334,178 @@ await step('phone layout: Queue is in the bottom bar; Leads list is cards that f
   await page.evaluate(() => { document.getElementById('lsearch').value = ''; renderLeads(); });
 });
 
+
+/* ======================= sales force features ======================= */
+const CP_CSV = [
+  'Name,Email,Company,Job Title,YouTube URL',
+  'Tom Ray,tom@techtom.com,Tech Tom,Creator,https://youtube.com/@techtom',
+  'Mia Fox,,Mia Makes,Creator,https://youtube.com/@miamakes'
+].join('\n');
+const leadByCo = async co => Object.values((await db()).leads).find(l => l.company === co);
+
+await step('brands: brand bar present; switching filters leads, queue and home without raising notifications', async () => {
+  await page.evaluate(() => showTab('dashboard')); await page.waitForTimeout(300);
+  assert.equal(await page.locator('#brand-bar .bb-btn').count(), 3);
+  const n0 = Object.keys((await db()).notifications).length;
+  await page.locator('#brand-bar .bb-btn', { hasText: 'Clearpath QR' }).click(); await page.waitForTimeout(400);
+  await page.evaluate(() => showTab('leads')); await page.waitForTimeout(300);
+  assert.match(await page.locator('#table-view').innerText(), /No leads yet/);
+  await page.evaluate(() => showTab('outreach')); await page.waitForTimeout(300);
+  assert.match(await page.locator('#oq-body').innerText(), /nothing due/i);
+  await page.locator('#brand-bar .bb-btn', { hasText: 'Both' }).click(); await page.waitForTimeout(400);
+  await page.evaluate(() => showTab('leads')); await page.waitForTimeout(300);
+  assert.match(await page.locator('#table-view').innerText(), /Zed Logistics/);
+  await page.locator('#brand-bar .bb-btn', { hasText: 'YALO' }).first().click(); await page.waitForTimeout(400);
+  assert.equal(Object.keys((await db()).notifications).length, n0, 'switching brand must not look like new leads');
+  await shot('10-brand-bar');
+});
+
+await step('Clearpath: import creators into that brand, DM and comment steps, hook is required', async () => {
+  await page.locator('#brand-bar .bb-btn', { hasText: 'Clearpath QR' }).click(); await page.waitForTimeout(300);
+  await page.evaluate(() => { showTab('leads'); OUT.openImport(); });
+  await page.fill('#imp-text', CP_CSV); await page.getByRole('button', { name: 'Read pasted text' }).click();
+  await page.waitForSelector('#imp-go');
+  assert.match(await page.locator('#imp-body select').first().evaluate(s => s.selectedOptions[0].textContent), /Clearpath QR/);
+  await page.click('#imp-go'); await page.waitForSelector('#tab-outreach', { state: 'visible' }); await page.waitForTimeout(500);
+  const tom = await leadByCo('Tech Tom'), mia = await leadByCo('Mia Makes');
+  assert.equal(tom.brand, 'clearpath'); assert.equal(tom.contacts[0].seq.type, 'clearpath-creator'); assert.equal(tom.contacts[0].seq.steps.length, 6);
+  assert.equal(mia.contacts[0].seq.type, 'clearpath-creator', 'a creator with only a profile link can still be worked');
+  assert.equal(tom.contacts[0].social, 'https://youtube.com/@techtom');
+  const txt = await page.locator('#oq-body').innerText();
+  assert.match(txt, /Tom Ray/); assert.match(txt, /Comment 1 of 6/i); assert.match(txt, /Add one line about what they did/);
+  const card = page.locator('.oq-card', { hasText: 'Tom Ray' });
+  assert.ok(await card.getByRole('button', { name: /Copy message/ }).count() === 1); assert.ok(await card.locator('a', { hasText: 'Open profile' }).count() === 1);
+  assert.equal(await card.locator('a', { hasText: 'Gmail' }).count(), 0, 'a comment is not an email');
+  await card.locator('input[id^="hook-"]').fill('how he edits in one hour'); await card.getByRole('button', { name: 'Save' }).click(); await page.waitForTimeout(500);
+  assert.equal((await leadByCo('Tech Tom')).hook, 'how he edits in one hour');
+  assert.doesNotMatch(await page.locator('.oq-card', { hasText: 'Tom Ray' }).innerText(), /Add one line about what they did/);
+  assert.match(await page.locator('.oq-card', { hasText: 'Tom Ray' }).innerText(), /how he edits in one hour/);
+  await shot('11-clearpath-queue');
+  await page.locator('.oq-card', { hasText: 'Tom Ray' }).getByRole('button', { name: /I sent it/ }).click(); await page.waitForTimeout(500);
+  const after = await leadByCo('Tech Tom'); const s = after.contacts[0].seq.steps;
+  assert.equal(s[0].status, 'sent'); assert.ok(!/reply STOP/.test(s[0].body), 'no email footer on a comment');
+  const due = YO_dueDays(after); assert.equal(due, 2);
+});
+
+await step('settings: Groq key, model list and company facts are saved without wiping other settings', async () => {
+  await page.evaluate(() => showTab('settings')); await page.waitForSelector('#sf-groq');
+  await page.fill('#sf-groq', 'gsk_test_key');
+  await page.getByRole('button', { name: 'Load models' }).click(); await page.waitForTimeout(500);
+  const opts = await page.locator('#sf-model option').allInnerTexts();
+  assert.deepEqual(opts, ['llama-3.3-70b-versatile', 'openai/gpt-oss-120b']);
+  await page.evaluate(() => document.querySelectorAll('#sales-settings details').forEach(d => { d.open = true; }));
+  await page.fill('#sfb-clearpath-price', 'Free to start'); await page.fill('#sfb-clearpath-proof', 'Used by 12 creators in beta\nCaptured 3,000 leads');
+  await page.getByRole('button', { name: 'Save companies and AI' }).click(); await page.waitForTimeout(600);
+  const s = (await db()).settings.main;
+  assert.equal(s.groqKey, 'gsk_test_key'); assert.equal(s.brands.clearpath.price, 'Free to start'); assert.deepEqual(s.brands.clearpath.proof, ['Used by 12 creators in beta', 'Captured 3,000 leads']);
+  assert.equal(s.apiKey, 'sk-test'); assert.equal(s.name, 'Busayo Amusan'); assert.ok(s.dncEmails.includes('dayo@stopco.com'));
+});
+
+await step('AI personalise (Groq): sends the facts and rules, cleans stock phrases and dashes, saves the step', async () => {
+  await page.locator('#brand-bar .bb-btn', { hasText: 'YALO' }).first().click(); await page.waitForTimeout(400);
+  await page.evaluate(() => showTab('outreach')); await page.waitForTimeout(300);
+  const card = page.locator('.oq-card', { hasText: 'Ife Bello' }); await card.locator('.oq-more summary').click();
+  await card.getByRole('button', { name: /Personalise/ }).click(); await page.waitForSelector('#ai-go');
+  await page.fill('#ai-extra', 'mention the renewal'); await page.click('#ai-go'); await page.waitForSelector('#ai-text');
+  const body = await page.inputValue('#ai-text'), subj = await page.inputValue('#ai-subj');
+  assert.equal(subj, 'Rent at Idle Corp'); assert.doesNotMatch(body, /delve|robust|seamless|\u2014/); assert.match(body, /Hi Ife/);
+  const call = groqCalls[groqCalls.length - 1];
+  assert.equal(call.auth, 'Bearer gsk_test_key'); assert.equal(call.body.model, 'llama-3.3-70b-versatile');
+  assert.match(call.body.messages[0].content, /Use ONLY the facts supplied/); assert.match(call.body.messages[0].content, /163 businesses/); assert.match(call.body.messages[0].content, /Price: not stated/);
+  assert.match(call.body.messages[1].content, /mention the renewal/);
+  await shot('12-ai-sheet');
+  await page.getByRole('button', { name: /Use this version/ }).click(); await page.waitForTimeout(500);
+  const idle = (await db()).leads['seed-idle']; const st = idle.contacts[0].seq.steps[0];
+  assert.equal(st.subject, 'Rent at Idle Corp'); assert.doesNotMatch(st.body, /delve/);
+});
+
+await step('AI without a key: clear message, nothing is sent', async () => {
+  const keep = (await db()).settings.main.groqKey;
+  await page.evaluate(() => { settings = { ...settings, groqKey: '' }; });
+  const n = groqCalls.length; const tabBefore = await page.evaluate(() => curTab);
+  await page.evaluate(() => SALES.personalise('seed-idle', 0, 1)); await page.waitForSelector('#ai-go'); await page.click('#ai-go'); await page.waitForTimeout(500);
+  assert.equal(groqCalls.length, n); assert.match(await page.locator('#toast').innerText(), /free Groq key/); assert.equal(await page.evaluate(() => curTab), tabBefore, 'the message must not move you to another screen');
+  await page.evaluate(k => { settings = { ...settings, groqKey: k }; SALES.closeAi(); }, keep);
+});
+
+await step('objections: brand-specific replies, tailor with AI, follow-up task, rejection removal', async () => {
+  await page.evaluate(() => showTab('objections')); await page.waitForSelector('#obj-lead');
+  assert.match(await page.locator('#tab-objections').innerText(), /What are the rates and fees/i);
+  assert.doesNotMatch(await page.locator('#tab-objections').innerText(), /My viewers will not scan it/);
+  await page.selectOption('#obj-lead', 'seed-idle');
+  const price = page.locator('#tab-objections details', { hasText: 'What are the rates and fees' });
+  await price.locator('summary').click();
+  assert.match(await price.innerText(), /annual rent/); assert.match(await price.innerText(), /Then ask/);
+  await price.getByRole('button', { name: /Tailor with AI/ }).click(); await page.waitForTimeout(600);
+  assert.match(await price.innerText(), /SPOKEN: That is fair/); assert.match(await price.innerText(), /NEXT STEP/);
+  const before = Object.keys((await db()).reminders).length;
+  await price.getByRole('button', { name: /Follow-up task/ }).click(); await page.waitForTimeout(500);
+  const rems = Object.values((await db()).reminders); assert.equal(rems.length, before + 1);
+  const r = rems.find(x => /numbers they asked for/.test(x.note)); assert.ok(r && r.leadId === 'seed-idle' && r.auto);
+  await page.getByRole('button', { name: 'Rejections' }).click(); await page.waitForTimeout(300);
+  assert.match(await page.locator('#tab-objections').innerText(), /Remove me/);
+  await shot('13-objections');
+});
+
+await step('call mode: brief, script, objection quick reply, outcomes set stage and create tasks', async () => {
+  await page.evaluate(() => SALES.call('seed-idle', 0)); await page.waitForSelector('#call-body .cmtitle');
+  await page.locator('#call-body summary', { hasText: 'Script' }).click();
+  let t = await page.locator('#call-body').innerText();
+  assert.match(t, /Ife Bello/); assert.match(t, /Brief/i); assert.match(t, /163 businesses/); assert.match(t, /Does that work\?/);
+  await page.locator('#call-body summary', { hasText: 'They push back' }).click();
+  await page.locator('#call-body .oq-chip', { hasText: 'rates and fees' }).click();
+  assert.match(await page.locator('#call-body').innerText(), /annual rent/);
+  await page.locator('#call-body summary', { hasText: 'Notes' }).click(); await page.fill('#call-note', 'CFO is Mr Bello, renewal in March'); await page.getByRole('button', { name: 'Save note' }).click(); await page.waitForTimeout(400);
+  assert.match((await db()).leads['seed-idle'].notes, /renewal in March/);
+  await shot('14-call-mode');
+  const nRem = Object.keys((await db()).reminders).length;
+  await page.locator("#call-body [onclick=\"SALES.callOutcome('interested')\"]").click(); await page.waitForTimeout(600);
+  let d = await db(); assert.equal(d.leads['seed-idle'].stage, 'Replied'); assert.equal(Object.keys(d.reminders).length, nRem + 1);
+  assert.ok(Object.values(d.reminders).some(r => /Book a meeting with Ife Bello/.test(r.note)));
+  assert.ok(Object.values(d.activities).some(a => a.type === 'call' && /Ife Bello: interested/.test(a.desc)));
+  // meeting needs a date, then makes two reminders
+  await page.evaluate(() => SALES.call('seed-idle', 0)); await page.waitForSelector('#call-body .sf-out');
+  await page.locator('#call-body .sf-out button', { hasText: 'Meeting booked' }).click(); await page.waitForSelector('#call-meet');
+  const fut = new Date(Date.now() + 3 * 86400000); const pad = n => String(n).padStart(2, '0'); const local = `${fut.getFullYear()}-${pad(fut.getMonth() + 1)}-${pad(fut.getDate())}T${pad(fut.getHours())}:00`;
+  await page.fill('#call-meet', local); const nr = Object.keys((await db()).reminders).length;
+  await page.getByRole('button', { name: /Save meeting and reminders/ }).click(); await page.waitForTimeout(600);
+  d = await db(); assert.equal(d.leads['seed-idle'].stage, 'Meeting Set'); assert.equal(Object.keys(d.reminders).length, nr + 2);
+  // not interested -> Lost
+  await page.evaluate(() => SALES.call('seed-legacy', 0)); await page.waitForSelector('#call-body .sf-out');
+  await page.locator('#call-body .sf-out button', { hasText: 'Not interested' }).click(); await page.waitForTimeout(500);
+  assert.equal((await db()).leads['seed-legacy'].stage, 'Lost');
+});
+
+await step('home: "Do this next" and forecast cards with real numbers', async () => {
+  await page.evaluate(() => showTab('dashboard')); await page.waitForTimeout(400);
+  const t = (await page.locator('#sf-next').innerText()) + (await page.locator('#sf-dash').innerText());
+  assert.match(t, /Do this next/i); assert.match(t, /Forecast/i);
+  const pos = await page.evaluate(() => ({ next: document.getElementById('sf-next').getBoundingClientRect().top, metrics: document.getElementById('metrics').getBoundingClientRect().top }));
+  assert.ok(pos.next < pos.metrics, 'Do this next sits above the stat tiles'); assert.match(t, /Likely to close/i); assert.match(t, /Win rate/i);
+  assert.ok(await page.locator('#sf-next .sf-row').count() >= 1);
+  await shot('15-home-cards');
+});
+
+await step('offer builder: value score finds the weakest part; AI drafts an offer', async () => {
+  await page.evaluate(() => showTab('offer')); await page.waitForSelector('#ve-out');
+  await page.evaluate(() => { SALES.veSet('time', 2); });
+  assert.match(await page.locator('#ve-out').innerText(), /Weakest part: How long until the result/);
+  await page.fill('#of-pain', 'big rent cheque ties up cash'); await page.click('#of-go'); await page.waitForTimeout(700);
+  assert.match(await page.locator('#of-out').innerText(), /Cash-Kept Lease Plan/);
+  await shot('16-offer');
+});
+
+await step('phone fit: new sheets stay inside the screen', async () => {
+  if (!MOBILE) return;
+  await page.evaluate(() => SALES.call('seed-idle', 0)); await page.waitForTimeout(600);
+  const m = await page.evaluate(() => { const cm = document.querySelector('#call-mo .cm').getBoundingClientRect(); return { l: cm.left, r: cm.right, iw: innerWidth }; });
+  assert.ok(m.l >= -1 && m.r <= m.iw + 1, `call sheet is ${m.l}..${m.r} in a ${m.iw}px window`);
+  await page.evaluate(() => SALES.callClose());
+});
+
 await step('no sideways page scroll on any screen (phone and tablet)', async () => {
   const bad = [];
-  for (const tab of ['dashboard', 'leads', 'outreach', 'reminders', 'scripts', 'activity', 'settings']) {
+  for (const tab of ['dashboard', 'leads', 'outreach', 'objections', 'offer', 'reminders', 'scripts', 'activity', 'settings']) {
     await page.evaluate(t => showTab(t), tab);
     await page.waitForTimeout(250);
     const m = await page.evaluate(() => ({ sw: document.documentElement.scrollWidth, iw: window.innerWidth }));

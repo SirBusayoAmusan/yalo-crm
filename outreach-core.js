@@ -13,7 +13,7 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
-  const VERSION = '2026-11-10.3';
+  const VERSION = '2026-11-10.4';
   const DAY = 86400000;
   const EDAYS = [0, 2, 6, 13, 20, 29, 44];                // days from first email (CRM default)
   const GAPS = EDAYS.map((d, i) => (i ? d - EDAYS[i - 1] : 0)); // days after the previous email is SENT
@@ -62,7 +62,7 @@
   /* ---------------- column mapping ---------------- */
   const FIELD_LABELS = {
     name: 'Full name', first: 'First name', last: 'Last name', email: 'Email', email2: 'Second email',
-    phone: 'Phone', title: 'Job title', company: 'Company', website: 'Website / domain',
+    phone: 'Phone', social: 'Social / channel link', title: 'Job title', company: 'Company', website: 'Website / domain',
     linkedin: 'LinkedIn URL', location: 'Location'
   };
   const SYNONYMS = {
@@ -71,6 +71,7 @@
     last: ['lastname', 'last', 'surname', 'familyname', 'lname'],
     email: ['workemail', 'businessemail', 'professionalemail', 'email', 'emailaddress', 'primaryemail', 'email1', 'bestemail'],
     email2: ['personalemail', 'secondaryemail', 'email2', 'otheremail', 'alternateemail'],
+    social: ['youtube', 'youtubeurl', 'channel', 'channelurl', 'youtubechannel', 'instagram', 'instagramurl', 'instagramhandle', 'handle', 'socialurl', 'social', 'twitter', 'twitterurl', 'xurl', 'tiktok', 'tiktokurl'],
     phone: ['phone', 'phonenumber', 'mobile', 'mobilephone', 'mobilenumber', 'directphone', 'workphone', 'cell', 'telephone', 'phone1'],
     title: ['jobtitle', 'title', 'position', 'role', 'headline', 'currenttitle'],
     company: ['company', 'companyname', 'organization', 'organisation', 'employer', 'currentcompany', 'account', 'accountname'],
@@ -120,7 +121,7 @@
 
   /* ---------------- sequence state ---------------- */
   const hasText = lead => (lead.emails || []).some(e => e && (e.body || e.subject));
-  const draftSteps = () => Array.from({ length: STEPS }, () => ({ status: 'draft' }));
+  const draftSteps = n => Array.from({ length: n || STEPS }, () => ({ status: 'draft' }));
   const sentIdx = steps => steps.reduce((last, s, i) => (s && SENT_STATES.includes(s.status) ? i : last), -1);
 
   // Returns { kind:'contact'|'legacy', steps, base:Date|null, c } or null when no sequence is running/started.
@@ -128,7 +129,7 @@
     const contacts = lead.contacts || [];
     const c = contacts[ci];
     if (c && c.seq && c.seq.active) {
-      return { kind: 'contact', steps: c.seq.steps, base: c.seq.startedAt ? new Date(c.seq.startedAt) : null, c };
+      return { kind: 'contact', steps: c.seq.steps, gaps: c.seq.gaps || null, base: c.seq.startedAt ? new Date(c.seq.startedAt) : null, c };
     }
     if (ci === 0 && !(c && c.seq) && Array.isArray(lead.emails) && lead.emails.length &&
         (lead.contactedAt || lead.emails.some(e => e && SENT_STATES.includes(e.status)))) {
@@ -145,7 +146,7 @@
     if (st.steps.some(s => s && s.status === 'replied')) return 'Replied';
     if (c && c.seq && c.seq.stopped) return 'Stopped';
     if (c && c.seq && c.seq.paused) return 'Paused';
-    if (sentIdx(st.steps) >= STEPS - 1) return 'Sequence complete';
+    if (sentIdx(st.steps) >= st.steps.length - 1) return 'Sequence complete';
     return null;
   }
 
@@ -154,11 +155,14 @@
   // When is the next email due? (Date) — counted from when the previous one was marked Sent.
   function dueDate(st) {
     const idx = nextIdx(st.steps);
-    if (idx >= STEPS) return null;
+    if (idx >= st.steps.length) return null;
     if (idx === 0) return st.base || null;
+    const gap = st.gaps && st.gaps[idx] != null ? st.gaps[idx] : (GAPS[idx] != null ? GAPS[idx] : 7);
     const prev = st.steps[idx - 1];
-    if (prev && prev.sentAt) return new Date(new Date(prev.sentAt).getTime() + GAPS[idx] * DAY);
-    return st.base ? new Date(st.base.getTime() + EDAYS[idx] * DAY) : null;
+    if (prev && prev.sentAt) return new Date(new Date(prev.sentAt).getTime() + gap * DAY);
+    if (!st.base) return null;
+    const cum = st.gaps ? st.gaps.slice(0, idx + 1).reduce((a, b) => a + (b || 0), 0) : (EDAYS[idx] != null ? EDAYS[idx] : idx * 7);
+    return new Date(st.base.getTime() + cum * DAY);
   }
 
   const startOfDay = d => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; };
@@ -189,22 +193,26 @@
   }
 
   /* ---------------- mutators (operate on a lead object you already own/cloned) ---------------- */
-  function newSeq(now, type) {
-    return { active: true, startedAt: new Date(now).toISOString(), type: type || null, steps: draftSteps() };
+  // meta (optional): { n: number of steps, gaps: [days after the previous step is SENT] }
+  function newSeq(now, type, meta) {
+    meta = meta || {};
+    const seq = { active: true, startedAt: new Date(now).toISOString(), type: type || null, steps: draftSteps(meta.n) };
+    if (meta.gaps) seq.gaps = meta.gaps.slice();
+    return seq;
   }
   // Start a sequence for contacts[ci]. Returns 'started' | 'already' | 'no_email' | 'dnc'.
-  function startSequence(lead, ci, now, type) {
+  function startSequence(lead, ci, now, type, meta) {
     now = now || new Date();
     const c = (lead.contacts || [])[ci];
     if (!c) return 'no_email';
     if (c.dnc) return 'dnc';
-    if (!normEmail(c.email)) return 'no_email';
+    if (!normEmail(c.email) && !clean(c.social) && !clean(c.linkedin)) return 'no_email';
     const st = seqState(lead, ci);
     if (st) return 'already';
     if (c.seq && c.seq.active) return 'already';
     // keep AI/script copy already saved on the lead for the primary contact: run it as the legacy sequence
     if (ci === 0 && !c.seq && hasText(lead)) { lead.contactedAt = new Date(now).toISOString(); return 'started'; }
-    c.seq = newSeq(now, type);
+    c.seq = newSeq(now, type, meta);
     return 'started';
   }
 
@@ -220,7 +228,7 @@
     if (st.kind === 'legacy' && !lead.contactedAt) lead.contactedAt = step.sentAt;
     if (lead.stage === 'New') lead.stage = 'Contacted';
     if (!lead.contactedAt) lead.contactedAt = step.sentAt;
-    return { nextDue: dueDate(st), complete: idx >= STEPS - 1 };
+    return { nextDue: dueDate(st), complete: idx >= st.steps.length - 1 };
   }
 
   function markReplied(lead, ci, now) {
@@ -272,23 +280,40 @@
     n = Number(n); if (!n) return '';
     return n >= 1e6 ? (n / 1e6).toFixed(n % 1e6 ? 1 : 0).replace(/\.0$/, '') + 'M' : Math.round(n / 1000) + 'K';
   }
-  function fill(text, vars) {
-    return String(text || '')
-      .replace(/\[FNAME\]/g, vars.fname).replace(/\[CONAME\]/g, vars.company)
-      .replace(/\[LEASE\]/g, vars.lease || '[LEASE]')
-      .replace(/\{first_name\}/g, vars.fname).replace(/\{company\}/g, vars.company);
+  // Fills [FNAME] [CONAME] [LEASE] (old scripts) and {first_name} {company} {title} {sender_name} {sender_title}
+  // {sender_company} {proof} {proof2} {hook} {lease_phrase} {marketplace} {offer} {brand} (new templates).
+  // A value that is not known is left as a visible token so it can be flagged before sending.
+  function fill(text, v) {
+    let s = String(text || '')
+      .replace(/\[FNAME\]/g, v.fname).replace(/\[CONAME\]/g, v.company)
+      .replace(/\[LEASE\]/g, v.lease || '[LEASE]');
+    return s.replace(/\{([a-z_0-9]+)\}/g, (m, k) => {
+      const map = { first_name: v.fname, company: v.company, title: v.title, sender_name: v.sender_name, sender_title: v.sender_title,
+        sender_company: v.sender_company, proof: v.proof, proof2: v.proof2, hook: v.hook, lease_phrase: v.lease_phrase,
+        marketplace: v.marketplace, offer: v.offer, brand: v.brand };
+      return Object.prototype.hasOwnProperty.call(map, k) ? (map[k] || '[' + k.toUpperCase() + ']') : m;
+    });
   }
-  // templatesFor(type) -> array of {label,subject,body}
-  function renderStep(lead, ci, idx, templatesFor) {
+  // templatesFor(type) -> array of {label,subject,body,channel?}. ctx (optional): { brand:profile, sender:{name,title,company} }
+  function renderStep(lead, ci, idx, templatesFor, ctx) {
+    ctx = ctx || {};
     const c = (lead.contacts || [])[ci] || {};
     const st = seqState(lead, ci);
     const step = (st && st.steps[idx]) || {};
     const type = (c.seq && c.seq.type) || lead.seqType || autoType(lead);
-    const tpl = (templatesFor ? templatesFor(type) : [])[idx] || { label: 'Email ' + (idx + 1), subject: '', body: '' };
+    const tpl = (templatesFor ? templatesFor(type) : [])[idx] || { label: 'Step ' + (idx + 1), subject: '', body: '' };
     let subject = step.subject, body = step.body, source = 'step';
     if (!(subject || body)) { subject = tpl.subject; body = tpl.body; source = 'template'; }
-    const vars = { fname: firstName(c.name), company: clean(lead.company) || 'your company', lease: fmtLease(lead.lease) };
-    return { label: tpl.label, subject: fill(subject, vars), body: fill(body, vars), source, type };
+    const b = ctx.brand || {}, s = ctx.sender || {};
+    const proofs = Array.isArray(b.proof) ? b.proof : (b.proof ? [b.proof] : []);
+    const vars = {
+      fname: firstName(c.name), company: clean(lead.company) || 'your company', title: clean(c.title) || '',
+      lease: fmtLease(lead.lease), lease_phrase: lead.lease ? 'about N' + fmtLease(lead.lease) : 'a large sum',
+      sender_name: clean(s.name), sender_title: clean(s.title), sender_company: clean(s.company),
+      proof: clean(proofs[0] || '', 400), proof2: clean(proofs[1] || proofs[0] || '', 400),
+      hook: clean(lead.hook || c.hook || '', 300), marketplace: clean(b.marketplace || '', 400), offer: clean(b.offer || '', 400), brand: clean(b.name || '')
+    };
+    return { label: tpl.label, subject: fill(subject, vars), body: fill(body, vars), source, type, channel: tpl.channel || 'email', day: tpl.day };
   }
   function addFooter(body, sender) {
     const name = clean(sender && sender.name), company = clean(sender && sender.company);
@@ -299,7 +324,7 @@
     lines.push("If this isn't relevant, just reply STOP and I won't email you again.");
     return String(body).replace(/\s+$/, '') + '\n\n--\n' + lines.join('\n');
   }
-  const leftoverTokens = text => (String(text).match(/\[[A-Z][A-Z ]{2,}\]/g) || []);
+  const leftoverTokens = text => (String(text).match(/\[[A-Z][A-Z_ ]{2,}\]|\{[a-z_0-9]{3,}\}/g) || []);
 
   /* ---------------- links ---------------- */
   const mailto = (to, subject, body) => 'mailto:' + encodeURIComponent(to) + '?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
@@ -357,7 +382,7 @@
       const name = clean(raw.name || [raw.first, raw.last].filter(Boolean).join(' '));
       const email = normEmail(raw.email) || normEmail(raw.email2);
       const email2 = normEmail(raw.email2);
-      const person = { name, email, phone: clean(raw.phone, 60), title: clean(raw.title), linkedin: clean(raw.linkedin, 500), company: clean(raw.company), website: normDomain(raw.website), location: clean(raw.location) };
+      const person = { name, email, phone: clean(raw.phone, 60), social: clean(raw.social, 500), title: clean(raw.title), linkedin: clean(raw.linkedin, 500), company: clean(raw.company), website: normDomain(raw.website), location: clean(raw.location) };
       const li = normLinkedin(person.linkedin);
       const label = name || email || li || '(blank)';
 
@@ -377,7 +402,7 @@
         const c = lead.contacts[hit[1]];
         let did = false;
         const upd = (k, v) => { if (v && v !== c[k]) { c[k] = v; did = true; } };
-        upd('name', name); upd('title', person.title); upd('phone', person.phone); upd('linkedin', person.linkedin);
+        upd('name', name); upd('title', person.title); upd('phone', person.phone); upd('linkedin', person.linkedin); upd('social', person.social);
         if (email && email !== normEmail(c.email)) { c.email = email; did = true; }
         else if (!c.email && email2) { c.email = email2; did = true; }
         if (!lead.website && person.website) { lead.website = person.website; did = true; }
@@ -385,7 +410,8 @@
         c.src = { file: opts.fileName || '', at: nowIso, row: rowNo };
         let note = did ? 'Updated' : 'No changes';
         if (opts.startSequences) {
-          const r = startSequence(lead, hit[1], now);
+          const meta = opts.sequenceMeta ? opts.sequenceMeta(lead, hit[1]) : null;
+          const r = startSequence(lead, hit[1], now, meta && meta.type, meta);
           if (r === 'started') { stats.started++; note += ', sequence started'; did = true; }
         }
         if (!normEmail(c.email)) stats.noEmail++;
@@ -399,7 +425,7 @@
       if (!person.company && !person.website) { stats.skipped++; preview.push({ row: rowNo, action: 'skip', who: label, company: '', note: 'No company or website' }); return; }
       const coKey = normCompany(person.company);
       let leadId = (coKey && byCo.get(coKey)) || (person.website && byDomain.get(person.website)) || null;
-      const contact = { name: name || email || 'Unknown', title: person.title, email, phone: person.phone, linkedin: person.linkedin, dnc: false, src: { file: opts.fileName || '', at: nowIso, row: rowNo } };
+      const contact = { name: name || email || 'Unknown', title: person.title, email, phone: person.phone, linkedin: person.linkedin, social: person.social, dnc: false, src: { file: opts.fileName || '', at: nowIso, row: rowNo } };
       if (!email) stats.noEmail++;
       let lead;
       if (leadId) {
@@ -412,7 +438,7 @@
       } else {
         lead = {
           id: uid(), company: person.company || person.website, sector: '', hq: person.location, size: '', website: person.website,
-          value: 0, blocker: '', disbursed: 0, fit: '', source: 'CSV Import', owner: opts.owner || 'Unassigned',
+          value: 0, blocker: '', disbursed: 0, fit: '', source: 'CSV Import', owner: opts.owner || 'Unassigned', brand: opts.brand || 'yalo',
           stage: 'New', createdAt: nowIso, notes: '', contactedAt: null, contacts: [contact],
           emails: Array.from({ length: STEPS }, () => ({ status: 'draft', subject: '', body: '' }))
         };
@@ -423,7 +449,8 @@
       const ci = lead.contacts.length - 1;
       let note = leadId ? 'Added to existing company' : 'New company';
       if (opts.startSequences) {
-        const r = startSequence(lead, ci, now);
+        const meta = opts.sequenceMeta ? opts.sequenceMeta(lead, ci) : null;
+        const r = startSequence(lead, ci, now, meta && meta.type, meta);
         if (r === 'started') { stats.started++; note += ', sequence started'; }
         else if (r === 'no_email') note += ', no email yet';
       }
