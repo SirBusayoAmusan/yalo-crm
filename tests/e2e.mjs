@@ -308,7 +308,7 @@ await step('unstarted person: drawer offers Start sequence; refuses without emai
 await step('home after all that: strip + Today consistent', async () => {
   await page.evaluate(() => showTab('dashboard'));
   await page.waitForTimeout(300);
-  const strip = await page.locator('#oq-dash-strip').innerText();
+  const strip = await page.locator('#oq-dash-strip').textContent();
   assert.match(strip, /sent 7d/i);
   await shot('06-home-after');
 });
@@ -402,7 +402,7 @@ await step('Clearpath: import creators into that brand, DM and comment steps, ho
   await card.locator('input[id^="hook-"]').fill('how he edits in one hour'); await card.getByRole('button', { name: 'Save' }).click(); await page.waitForTimeout(500);
   assert.equal((await leadByCo('Tech Tom')).hook, 'how he edits in one hour');
   assert.doesNotMatch(await page.locator('.oq-card', { hasText: 'Tom Ray' }).innerText(), /Add one line about what they did/);
-  assert.match(await page.locator('.oq-card', { hasText: 'Tom Ray' }).innerText(), /how he edits in one hour/);
+  assert.match(await page.locator('.oq-card', { hasText: 'Tom Ray' }).textContent(), /how he edits in one hour/);
   await shot('11-clearpath-queue');
   await page.locator('.oq-card', { hasText: 'Tom Ray' }).getByRole('button', { name: /I sent it/ }).click(); await page.waitForTimeout(500);
   const after = await leadByCo('Tech Tom'); const s = after.contacts[0].seq.steps;
@@ -499,12 +499,39 @@ await step('call mode: brief, script, objection quick reply, outcomes set stage 
   assert.equal((await db()).leads['seed-legacy'].stage, 'Lost');
 });
 
+await step('calm look: home is short, details fold away and open, warnings grouped, nav has line icons', async () => {
+  await page.evaluate(() => showTab('dashboard')); await page.waitForTimeout(500);
+  const info = await page.evaluate(() => {
+    const vis = id => { const e = document.getElementById(id); return !!e && e.getClientRects().length > 0; };
+    const tab = document.getElementById('tab-dashboard');
+    return { head: document.getElementById('calm-head').innerText, stats: document.querySelectorAll('#calm-stats > div').length,
+      hero: vis('hero-pipeline'), tiles: vis('metrics'), today: vis('today-wrap'), qa: !!document.querySelector('.qa-grid') && document.querySelector('.qa-grid').getClientRects().length > 0,
+      moreOpen: document.getElementById('calm-more').open, forecastVisible: document.getElementById('sf-dash').checkVisibility({ contentVisibilityAuto: true }), height: Math.round(tab.getBoundingClientRect().height),
+      warnGroups: document.querySelectorAll('#ws-home-plan details.calm-warns').length, looseWarns: [...document.querySelectorAll('#ws-home-plan .oq-warn')].filter(w => !w.closest('.calm-warns')).length,
+      svgs: document.querySelectorAll('.bn-item svg').length, scanHidden: getComputedStyle(document.getElementById('bn-scan')).display === 'none' };
+  });
+  assert.match(info.head, /Good (morning|afternoon|evening)/); assert.equal(info.stats, 3, 'three numbers');
+  assert.ok(!info.hero && !info.tiles && !info.today && !info.qa, 'old hero, tiles, today panel and quick tiles are gone from view');
+  assert.ok(!info.moreOpen && !info.forecastVisible, 'forecast and charts are folded by default ' + JSON.stringify([info.moreOpen, info.forecastVisible]));
+  assert.ok(info.height < (MOBILE ? 1500 : 1100), 'home is short: ' + info.height);
+  assert.equal(info.looseWarns, 0, 'warnings are grouped'); assert.ok(info.warnGroups >= 1);
+  assert.ok(info.svgs >= 5, 'nav uses line icons'); assert.ok(info.scanHidden);
+  await shot('40-calm-home');
+  await page.locator('#calm-more > summary').click(); await page.waitForTimeout(500);
+  const open = await page.evaluate(() => ({ f: document.getElementById('sf-dash').checkVisibility({ contentVisibilityAuto: true }), c: document.getElementById('actChart').getBoundingClientRect().width, h: document.getElementById('actChart').getBoundingClientRect().height }));
+  assert.ok(open.f && open.c > 100 && open.h > 50, 'details open with a drawn chart ' + JSON.stringify(open));
+  await shot('41-calm-home-open');
+  await page.locator('#calm-more > summary').click();
+  await page.locator('#ws-home-plan details.calm-warns > summary').first().click(); await page.waitForTimeout(150);
+  assert.ok(await page.locator('#ws-home-plan .oq-warn').first().isVisible(), 'a heads-up opens on tap');
+});
+
 await step('home: "Do this next" and forecast cards with real numbers', async () => {
   await page.evaluate(() => showTab('dashboard')); await page.waitForTimeout(400);
-  const t = (await page.locator('#sf-next').innerText()) + (await page.locator('#sf-dash').innerText());
+  const t = (await page.locator('#sf-next').textContent()) + (await page.locator('#sf-dash').textContent());
   assert.match(t, /Do this next/i); assert.match(t, /Forecast/i);
-  const pos = await page.evaluate(() => ({ next: document.getElementById('sf-next').getBoundingClientRect().top, metrics: document.getElementById('metrics').getBoundingClientRect().top }));
-  assert.ok(pos.next < pos.metrics, 'Do this next sits above the stat tiles'); assert.match(t, /Likely to close/i); assert.match(t, /Win rate/i);
+  const pos = await page.evaluate(() => ({ next: document.getElementById('sf-next').getBoundingClientRect().top, metrics: document.getElementById('calm-more').getBoundingClientRect().top }));
+  assert.ok(pos.next < pos.metrics, 'Do this next sits above the folded details'); assert.match(t, /Likely to close/i); assert.match(t, /Win rate/i);
   assert.ok(await page.locator('#sf-next .sf-row').count() >= 1);
   await shot('15-home-cards');
 });
@@ -568,7 +595,7 @@ await step('daily plan: two mailboxes cap 100 at a safe number, the warning expl
   await page.waitForSelector('#tab-outreach', { state: 'visible' }); await page.waitForTimeout(600);
   const d = await db(); const boxes = ['Plan One Ltd', 'Plan Two Ltd', 'Plan Three Ltd', 'Plan Four Ltd'].map(c => Object.values(d.leads).find(l => l.company === c).contacts[0].seq.mailbox);
   assert.deepEqual(boxes.sort(), ['busayo@clearpath.ng', 'busayo@clearpath.ng', 'sales@yalo.ng', 'sales@yalo.ng'], 'each mailbox gets half');
-  const txt = await page.locator('#sf-plan-slot').innerText();
+  const txt = await page.locator('#sf-plan-slot').textContent();
   assert.match(txt, /Today's sending/i); assert.match(txt, /only safe for about 20 a day/); assert.match(txt, /sales@yalo\.ng/);
   const gm = await page.locator('.oq-card', { hasText: 'Pat One' }).locator('a', { hasText: 'Gmail' }).getAttribute('href'); assert.match(gm, /authuser=/);
   await shot('21-plan');
@@ -656,7 +683,7 @@ await step('templates: list with reply numbers, edit a step, live preview and ch
   // the queue now uses the edited wording for a person who has not received step 1 yet
   const fresh = Object.values((await db()).leads).find(l => l.company === 'Plan Three Ltd');
   await page.evaluate(() => showTab('outreach')); await page.waitForTimeout(400);
-  const card = page.locator('.oq-card', { hasText: 'Pat Three' }); assert.match(await card.innerText(), /Rent at Plan Three Ltd, my version/);
+  const card = page.locator('.oq-card', { hasText: 'Pat Three' }); assert.match(await card.textContent(), /Rent at Plan Three Ltd, my version/);
   await shot('24-template-editor');
 });
 
