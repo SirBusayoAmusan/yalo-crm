@@ -13,9 +13,9 @@ self.addEventListener('push', e => {
   }));
 });
 
-const CACHE = 'yalo-crm-shell-v9';
+const CACHE = 'yalo-crm-shell-v10';
 const LIBS = 'yalo-crm-libs-v1';
-const SHELL = ['index.html', 'outreach-core.js', 'outreach.js', 'sales-lexicon.js', 'sales-core.js', 'sales.js', 'workspace.js', 'push-core.js', 'push.js', 'calm.js', 'card.html', 'manifest.json', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png', 'favicon-32.png', 'icon.svg'];
+const SHELL = ['index.html', 'outreach-core.js', 'outreach.js', 'sales-lexicon.js', 'sales-core.js', 'sales.js', 'workspace.js', 'push-core.js', 'push.js', 'wins-core.js', 'wins.js', 'calm.js', 'card.html', 'manifest.json', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png', 'favicon-32.png', 'icon.svg'];
 const LIB_HOSTS = ['www.gstatic.com', 'cdnjs.cloudflare.com', 'fonts.googleapis.com', 'fonts.gstatic.com'];
 
 self.addEventListener('install', e => {

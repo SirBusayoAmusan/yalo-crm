@@ -191,6 +191,7 @@
       if (!needsEmail) more.push(`<button class="btn btn-ghost btn-sm" onclick="OUT.open('${lid}',${ci})">✏️ Edit</button>`);
       act.more.forEach(x => more.push(x));
       if (window.SALES) more.push(`<button class="btn btn-ghost btn-sm" onclick="SALES.call('${lid}',${ci})">📞 Call mode</button>`);
+      if (window.PUSH && PUSH.remindMe) more.push(`<button class="btn btn-ghost btn-sm" onclick="PUSH.remindMe('${lid}',${ci})">⏰ Remind me</button>`);
       if (c.phone) { const wa = YO.waLink(c.phone, ''); if (wa) more.push(`<a class="btn btn-ghost btn-sm" target="_blank" rel="noopener" href="${esc(wa)}">💬 WhatsApp</a>`); }
       if (c && c.name && !needsEmail) {
         more.push(`<button class="btn btn-ghost btn-sm" onclick="OUT.replied('${lid}',${ci})">↩ They replied</button>`);
@@ -283,7 +284,8 @@
       await save(l);
       const mailbox = f.channel === 'email' && mbox(c) ? mbox(c) : undefined;
       await addAct(Object.assign({ leadId: l.id, type: 'email', company: l.company, desc: `Sent ${f.channel} ${idx + 1} (${f.label}) to ${fullName(c)}` }, mailbox ? { mailbox } : {}));
-      toast(res.complete ? 'Sent. Sequence complete 🎉' : `Sent ✓ Next email due ${fmtDay(res.nextDue)}`);
+      const pushOn = !!(settings && settings.push && settings.push.on && settings.push.followups !== false);
+      toast(res.complete ? 'Sent. Sequence complete 🎉' : `Sent ✓ Next email ${fmtDay(res.nextDue)} at ${new Date(res.nextDue).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}${pushOn ? ' · I will remind you' : ''}`);
       OUT.refresh();
     },
     async replied(leadId, ci) {

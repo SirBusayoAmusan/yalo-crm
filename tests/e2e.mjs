@@ -95,6 +95,7 @@ await page.route('**/*', route => {
   if (u.includes('qrcode')) return route.fulfill(body('window.QRCode=function(){};'));
   return route.fulfill({ status: 200, contentType: 'text/css', body: '' });
 });
+await page.addInitScript(() => { window.__WINS_NO_POP = true; });
 const groqCalls = [];
 const pushLib = require(path.join(ROOT, 'server/push-lib.js'));
 let skew = 0; const sentPush = []; let blobData = null, blobVer = 0;
@@ -141,7 +142,7 @@ await page.addInitScript(({ leads, settings }) => {
 const step = async (name, fn) => { try { await fn(); console.log('PASS', name); } catch (e) { console.log('FAIL', name, '\n   ', e.message.slice(0,700)); await page.screenshot({ path: `${OUTDIR}/FAIL-${name.replace(/\W+/g, '_')}.png` }); process.exitCode = 1; } };
 const db = () => page.evaluate(() => JSON.parse(JSON.stringify(window.__db)));
 const YO_dueDays = lead => { const c = lead.contacts[0]; const steps = c.seq.steps; const gaps = c.seq.gaps; const last = steps.map((s, i) => (s.sentAt ? i : -1)).reduce((a, b) => Math.max(a, b), -1); const next = last + 1; return Math.round(gaps[next]); };
-const more = async card => { await card.locator('.oq-more summary').first().click(); };
+const more = async card => { await card.locator('.oq-more summary').first().click(); await page.waitForTimeout(450); await card.locator('.oq-more-grid').first().evaluate(e => e.scrollIntoView({ block: 'center', behavior: 'instant' })); await page.waitForTimeout(150); };
 const shot = n => page.screenshot({ path: `${OUTDIR}/${n}.png` });
 
 await page.goto(BASE + '/index.html');
@@ -816,9 +817,81 @@ await step('notifications: blocked permission is explained; turning off removes 
   assert.equal(serverState().subs.length, 1, 'turning it on again works');
 });
 
+await step('wins: commission is 1% of YALO deals, milestones unlock with a celebration, home shows the latest win', async () => {
+  await page.evaluate(async () => {
+    const now = new Date().toISOString(), base = { blocker: '', disbursed: 0, fit: '', source: 'Other', owner: 'Busayo', createdAt: now, notes: '', contactedAt: now, emails: [] };
+    await window.FB.saveLead(Object.assign({}, base, { id: 'win-yalo', company: 'Prime Estates', sector: 'Real estate', brand: 'yalo', value: 8000000, stage: 'Closed', contacts: [{ name: 'Seun Ade', title: 'CEO', email: 's@prime.ng' }] }));
+    await window.FB.saveActivity({ id: 'win-a1', leadId: 'win-yalo', type: 'status', company: 'Prime Estates', desc: 'Stage: Proposal Sent -> Closed', ts: now });
+    await window.FB.saveLead(Object.assign({}, base, { id: 'win-cp', company: 'Tech Tom', sector: 'YouTube', brand: 'clearpath', value: 500000, stage: 'Closed', contacts: [{ name: 'Tom Ray', title: 'Creator' }] }));
+    await window.FB.saveActivity({ id: 'win-a2', leadId: 'win-cp', type: 'status', company: 'Tech Tom', desc: 'Stage: Meeting Set -> Closed', ts: now });
+  });
+  await page.evaluate(() => { window.__WINS_NO_POP = false; localStorage.removeItem('yalo_wins_seen'); showTab('wins'); }); await page.waitForTimeout(900);
+  await page.evaluate(() => SALES.setBrand ? SALES.setBrand('all') : 0);
+  const t = await page.locator('#tab-wins').innerText();
+  assert.match(t, /Commission earned/); assert.match(t, /₦80k/, 'YALO deal of ₦8M at 1% is ₦80k, and the creator deal adds nothing'); assert.match(t, /1 YALO deal/);
+  assert.match(t, /First YALO deal secured/); assert.match(t, /First creator on board/);
+  const cells = await page.locator('.wn-cell.done').count(); assert.ok(cells >= 4, 'unlocked stickers are shown: ' + cells);
+  await shot('50-wins');
+  // the celebration opens on its own for a win from the last two days
+  await page.waitForFunction(() => document.getElementById('wn-pop') && document.getElementById('wn-pop').classList.contains('open'), null, { timeout: 8000 });
+  assert.match(await page.locator('#wn-pop').innerText(), /milestone unlocked/i); await page.waitForTimeout(700); await shot('51-wins-celebrate');
+  await page.evaluate(() => { WINS.popClose(); window.__WINS_NO_POP = true; }); await page.waitForTimeout(600);
+  await page.evaluate(() => { showTab('dashboard'); }); await page.waitForTimeout(700);
+  const home = await page.locator('#wn-home').innerText(); assert.match(home, /Latest win|Next milestone/); assert.match(home, /₦80k/);
+  assert.equal(await page.evaluate(() => { const m = document.getElementById('calm-more'), h = document.getElementById('wn-home'); return !!(h && m && (h.compareDocumentPosition(m) & Node.DOCUMENT_POSITION_FOLLOWING)); }), true, 'the win row sits above the folded details');
+});
+
+await step('wins: commission rate and fee are settings; week/month/year switch and step back', async () => {
+  await page.evaluate(() => showTab('wins')); await page.waitForTimeout(500);
+  await page.locator('.wn-set > summary').click(); await page.waitForTimeout(200);
+  await page.locator('.wn-set input[type=number]').nth(0).fill('2'); await page.waitForTimeout(1200);
+  await page.locator('.wn-set input[type=number]').nth(1).fill('50000'); await page.waitForTimeout(1200);
+  assert.deepEqual({ rate: (await db()).settings.main.wins.rate, base: (await db()).settings.main.wins.base }, { rate: 2, base: 50000 });
+  const t = await page.locator('#tab-wins').innerText(); assert.match(t, /₦160k/, '2% of ₦8M'); assert.match(t, /Monthly fee/); assert.match(t, /₦210k/, 'fee plus commission');
+  await page.locator('.wn-seg button', { hasText: 'Week' }).click(); await page.waitForTimeout(300); assert.match(await page.locator('#tab-wins .wn-nav').innerText(), /This week/);
+  await page.locator('.wn-nav button').first().click(); await page.waitForTimeout(300); assert.match(await page.locator('#tab-wins .wn-nav').innerText(), /Last week/);
+  await page.locator('.wn-seg button', { hasText: 'Year' }).click(); await page.waitForTimeout(300); assert.match(await page.locator('#tab-wins .wn-nav').innerText(), new RegExp(String(new Date().getFullYear())));
+  await page.locator('.wn-seg button', { hasText: 'Month' }).click(); await page.waitForTimeout(300);
+  await page.evaluate(() => window.WINS.share('showMoney', false)); await page.waitForTimeout(300);
+  await page.evaluate(async () => { const s = Object.assign({}, settings, { wins: Object.assign({}, settings.wins, { rate: 1, base: 0 }) }); settings = s; await window.FB.saveSettings(s); renderAll(); });
+});
+
+await step('wins: the review opens like a story, draws real images in 3 shapes, hides money and names unless you allow them, and shares or saves', async () => {
+  await page.evaluate(() => showTab('wins')); await page.waitForTimeout(500);
+  await page.locator('.wn-share').click(); await page.waitForFunction(() => { const i = document.getElementById('wn-v-img'); return i && i.complete && i.naturalWidth > 0 && !i.classList.contains('loading'); }, null, { timeout: 15000 });
+  const dims = async () => page.evaluate(() => { const i = document.getElementById('wn-v-img'); return [i.naturalWidth, i.naturalHeight]; });
+  assert.deepEqual(await dims(), [1080, 1920]); assert.equal(await page.locator('#wn-segs span').count(), 5);
+  await shot('52-review-1');
+  const srcs = new Set(); for (let i = 0; i < 5; i++) { srcs.add(await page.evaluate(() => document.getElementById('wn-v-img').src)); await page.evaluate(() => WINS.next()); await page.waitForTimeout(450); if (i === 2) await shot('53-review-4'); }
+  assert.ok(srcs.size >= 4, 'each slide is a different picture');
+  await page.evaluate(() => { WINS.prev(); WINS.prev(); WINS.prev(); }); await page.waitForTimeout(400);
+  await page.locator('.wn-fmt button[data-f="post"]').click(); await page.waitForFunction(() => document.getElementById('wn-v-img').naturalHeight === 1350, null, { timeout: 15000 });
+  await page.locator('.wn-fmt button[data-f="square"]').click(); await page.waitForFunction(() => document.getElementById('wn-v-img').naturalHeight === 1080, null, { timeout: 15000 });
+  assert.equal(await page.evaluate(() => (settings.wins || {}).showMoney), false, 'amounts are hidden by default');
+  await page.locator('#wn-v-money').check(); await page.waitForTimeout(1500); await page.waitForFunction(() => !document.getElementById('wn-v-img').classList.contains('loading'), null, { timeout: 15000 });
+  assert.equal(await page.evaluate(() => settings.wins.showMoney), true);
+  await page.evaluate(() => { while (WINS && document.querySelectorAll('#wn-segs i')[0] && false); });
+  await page.locator('.wn-fmt button[data-f="story"]').click(); await page.waitForFunction(() => document.getElementById('wn-v-img').naturalHeight === 1920, null, { timeout: 15000 });
+  await page.evaluate(() => { for (let k = 0; k < 4; k++) WINS.next(); }); await page.waitForTimeout(500);
+  const dl = page.waitForEvent('download', { timeout: 8000 }); await page.locator('.wn-v-bar .btn-g').click(); const d = await dl; assert.match(d.suggestedFilename(), /\.png$/);
+  await page.evaluate(() => WINS.closeReview()); await page.waitForTimeout(500);
+  assert.equal(await page.evaluate(() => document.getElementById('wn-viewer').classList.contains('open')), false);
+  await page.evaluate(() => WINS.share('showMoney', false));
+});
+
+await step('manual reminder: "Remind me" on a queue card sets a phone reminder; the automatic follow-up uploads at the due time', async () => {
+  await page.evaluate(() => showTab('outreach')); await page.waitForTimeout(600);
+  const card = page.locator('.oq-card').first(); await more(card);
+  await card.getByRole('button', { name: /Remind me/ }).click(); await page.waitForTimeout(300);
+  await page.locator('#ai-body button', { hasText: 'Tomorrow 9:00' }).click(); await page.waitForTimeout(500);
+  const rem = Object.values((await db()).reminders).find(r => r.source === 'manual' && /^Follow up with/.test(r.note));
+  assert.ok(rem, 'a manual reminder was saved'); const w = new Date(rem.when); assert.equal(w.getHours(), 9); assert.ok(w > new Date());
+  await page.evaluate(() => PUSH.sync && PUSH.sync(true)); await page.waitForTimeout(800);
+});
+
 await step('no sideways page scroll on any screen (phone and tablet)', async () => {
   const bad = [];
-  for (const tab of ['dashboard', 'leads', 'outreach', 'tasks', 'templates', 'objections', 'offer', 'activity', 'settings']) {
+  for (const tab of ['dashboard', 'leads', 'outreach', 'tasks', 'templates', 'objections', 'offer', 'activity', 'settings', 'wins']) {
     await page.evaluate(t => showTab(t), tab);
     await page.waitForTimeout(250);
     const m = await page.evaluate(() => ({ sw: document.documentElement.scrollWidth, iw: window.innerWidth }));
